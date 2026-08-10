@@ -22,6 +22,9 @@ htmlcov/
 .env
 .env.*
 
+# Collected data (screen-resolution/game-specific, not source)
+data/
+
 # Editors / OS
 .vscode/
 .idea/
