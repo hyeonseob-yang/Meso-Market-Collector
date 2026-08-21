@@ -1,8 +1,10 @@
 {
-  "meso_price": {
-    "left": 0,
-    "top": 0,
-    "width": 150,
-    "height": 30
-  }
+  "sell_meso_1": { "left": 0, "top": 0, "width": 150, "height": 30 },
+  "sell_meso_2": { "left": 0, "top": 0, "width": 150, "height": 30 },
+  "sell_meso_3": { "left": 0, "top": 0, "width": 150, "height": 30 },
+  "sell_meso_4": { "left": 0, "top": 0, "width": 150, "height": 30 },
+  "buy_meso_1": { "left": 0, "top": 0, "width": 150, "height": 30 },
+  "buy_meso_2": { "left": 0, "top": 0, "width": 150, "height": 30 },
+  "buy_meso_3": { "left": 0, "top": 0, "width": 150, "height": 30 },
+  "buy_meso_4": { "left": 0, "top": 0, "width": 150, "height": 30 }
 }

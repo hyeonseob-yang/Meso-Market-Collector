@@ -1,0 +1,15 @@
+[
+  {"action": "launch"},
+  {"action": "click_image", "template": "play_button.png"},
+  {"action": "wait_for_image", "template": "windows_run_prompt.png"},
+  {"action": "click_image", "template": "windows_run_button.png"},
+  {"action": "wait_for_image", "template": "login_button.png"},
+  {"action": "wait_for_stable_image", "template": "login_button.png"},
+  {"action": "click_image", "template": "login_button.png"},
+  {"action": "click_image", "template": "quick_move_button.png"},
+  {"action": "click_image", "template": "meso_market_icon.png"},
+  {"action": "record_prices", "regions": ["sell_meso_1", "sell_meso_2", "sell_meso_3", "sell_meso_4"]},
+  {"action": "click_image", "template": "buy_mesos_tab.png"},
+  {"action": "record_prices", "regions": ["buy_meso_1", "buy_meso_2", "buy_meso_3", "buy_meso_4"]},
+  {"action": "close"}
+]
