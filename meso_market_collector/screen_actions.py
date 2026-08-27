@@ -96,5 +96,10 @@ class ScreenActions:
             append_price(region.name, price)
 
     def close(self) -> None:
+        # Note: if the launcher spawns the actual game as a separate,
+        # detached process and exits on its own, this only terminates the
+        # (already-gone) launcher PID, not the game. If "close" isn't
+        # actually closing the game, this needs to find the game's own
+        # process (e.g. by name via psutil) instead.
         if self._process is not None:
             self._process.terminate()

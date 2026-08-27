@@ -8,14 +8,27 @@ handling.
 
 ## Setup
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
+This code is edited from WSL but must actually **run under Windows Python**,
+not WSL Python: `session.py`/`screen_actions.py` need PyAutoGUI to see and
+click the real Windows desktop, which isn't accessible from inside WSL (WSL
+can launch a Windows `.exe`, but can't screenshot or click its window).
+
+From a Windows terminal (PowerShell/cmd, with Python installed on Windows):
+
+```powershell
+cd \\wsl$\Ubuntu\home\hya81\Meso-Market-Collector
+python -m venv .venv-windows
+.venv-windows\Scripts\activate
 pip install -r requirements-dev.txt
 ```
 
-Must be run from a session with real screen/GUI access (i.e. the machine
-actually displaying the game) — it will not work from a headless shell.
+(`\\wsl$\...` runs Windows Python directly against the files in this WSL
+repo — no need to copy anything. Adjust the distro name if not `Ubuntu`.)
+
+The plain `.venv` at the repo root (`python3 -m venv .venv` from WSL) is
+still useful for editing/running the display-independent tests
+(`routine.py`, `config.py`, `storage.py`) from within WSL — just not for
+actually running the game automation.
 
 ## Configure
 
@@ -39,7 +52,9 @@ actually displaying the game) — it will not work from a headless shell.
 
 ## Run the full session (launch game, log in, record both tabs, close)
 
-```bash
+From the Windows Python venv set up above:
+
+```powershell
 python -m meso_market_collector.session --launcher-path "C:\Games\Launcher.exe"
 ```
 
