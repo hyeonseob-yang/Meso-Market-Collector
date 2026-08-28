@@ -11,8 +11,8 @@ class FakeActions:
     def __init__(self):
         self.calls: list[tuple] = []
 
-    def launch(self, launcher_path):
-        self.calls.append(("launch", launcher_path))
+    def launch(self, task_name):
+        self.calls.append(("launch", task_name))
 
     def wait_and_click_image(self, template):
         self.calls.append(("wait_and_click_image", template))
@@ -62,9 +62,11 @@ def test_load_steps_parses_json(tmp_path):
 
 
 def test_run_routine_dispatches_each_step_in_order():
+    # "launch" triggers a scheduled task that goes straight to the login
+    # screen (see screen_actions.ScreenActions.launch) - no Play click or
+    # Windows Run prompt to handle here anymore.
     steps = [
         Step(action="launch"),
-        Step(action="wait_and_click_image", template="windows_run_prompt.png"),
         Step(action="wait_for_image", template="login_button.png"),
         Step(action="wait_for_stable_image", template="login_button.png"),
         Step(action="click_image", template="login_button.png"),
@@ -86,11 +88,10 @@ def test_run_routine_dispatches_each_step_in_order():
     ]
     actions = FakeActions()
 
-    run_routine(steps, launcher_path="C:/Games/Launcher.exe", actions=actions)
+    run_routine(steps, task_name="MesoMarketCollector_MapleStoryViaLauncher", actions=actions)
 
     assert actions.calls == [
-        ("launch", "C:/Games/Launcher.exe"),
-        ("wait_and_click_image", "windows_run_prompt.png"),
+        ("launch", "MesoMarketCollector_MapleStoryViaLauncher"),
         ("wait_for_image", "login_button.png"),
         ("wait_for_stable_image", "login_button.png"),
         ("click_image", "login_button.png"),
@@ -107,7 +108,7 @@ def test_run_routine_dispatches_each_step_in_order():
 def test_run_routine_dispatches_press_key():
     actions = FakeActions()
 
-    run_routine([Step(action="press_key", key="esc")], launcher_path="x", actions=actions)
+    run_routine([Step(action="press_key", key="esc")], task_name="x", actions=actions)
 
     assert actions.calls == [("press_key", "esc")]
 
@@ -115,7 +116,7 @@ def test_run_routine_dispatches_press_key():
 def test_run_routine_dispatches_hotkey():
     actions = FakeActions()
 
-    run_routine([Step(action="hotkey", keys=["alt", "f4"])], launcher_path="x", actions=actions)
+    run_routine([Step(action="hotkey", keys=["alt", "f4"])], task_name="x", actions=actions)
 
     assert actions.calls == [("hotkey", ("alt", "f4"))]
 
@@ -124,4 +125,4 @@ def test_run_routine_rejects_unknown_action():
     actions = FakeActions()
 
     with pytest.raises(ValueError, match="Unknown action"):
-        run_routine([Step(action="teleport")], launcher_path="x", actions=actions)
+        run_routine([Step(action="teleport")], task_name="x", actions=actions)

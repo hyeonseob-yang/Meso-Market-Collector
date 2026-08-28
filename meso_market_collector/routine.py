@@ -33,7 +33,7 @@ class GameActions(Protocol):
     """What run_routine needs; screen_actions.ScreenActions implements this
     for real, tests use a fake."""
 
-    def launch(self, launcher_path: str) -> None: ...
+    def launch(self, task_name: str) -> None: ...
     def wait_and_click_image(self, template: str) -> None: ...
     def wait_for_image(self, template: str) -> None: ...
     def wait_for_stable_image(self, template: str) -> None: ...
@@ -43,10 +43,10 @@ class GameActions(Protocol):
     def hotkey(self, keys: list[str]) -> None: ...
 
 
-def run_routine(steps: list[Step], launcher_path: str, actions: GameActions) -> None:
+def run_routine(steps: list[Step], task_name: str, actions: GameActions) -> None:
     for step in steps:
         if step.action == "launch":
-            actions.launch(launcher_path)
+            actions.launch(task_name)
         elif step.action == "wait_and_click_image":
             actions.wait_and_click_image(step.template)
         elif step.action == "wait_for_image":

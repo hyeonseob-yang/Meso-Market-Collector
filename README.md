@@ -57,26 +57,65 @@ actually running the game automation.
    [`config/routine.json`](config/routine.json), so the two tabs still end
    up as distinct rows in the CSV.
 
-2. **Template images.** The routine finds buttons (Play, Log In, Quick
-   Move, etc.) by matching small reference screenshots. See
+2. **Launch task.** The game is started via a Windows Scheduled Task rather
+   than running the launcher/game exe directly — see "Why a Scheduled Task"
+   below for why. One-time setup, from an **Administrator** PowerShell:
+   ```powershell
+   $shell = New-Object -ComObject WScript.Shell
+   $sc = $shell.CreateShortcut("$env:USERPROFILE\Desktop\MapleStory.lnk")  # or wherever your game's shortcut is
+   $sc.TargetPath; $sc.Arguments  # note these two values
+
+   $action = New-ScheduledTaskAction -Execute "<TargetPath from above>" -Argument "<Arguments from above>"
+   $principal = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$env:USERNAME" -LogonType Interactive -RunLevel Highest
+   $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date)
+   Register-ScheduledTask -TaskName "MesoMarketCollector_MapleStoryViaLauncher" -Action $action -Principal $principal -Trigger $trigger -Force
+   ```
+   (`tools/find_shortcut_target.ps1` does the first part — finding a
+   shortcut's target/arguments — for you.) Verify it works with
+   `schtasks /run /tn "MesoMarketCollector_MapleStoryViaLauncher"` from a
+   normal (non-admin) shell — it should go straight to the game's login
+   screen with no prompt.
+
+3. **Template images.** The routine finds buttons (Log In, Quick Move,
+   etc.) by matching small reference screenshots. See
    [`assets/templates/README.md`](assets/templates/README.md) for exactly
    which crops to capture and their required filenames.
 
-3. **Routine steps.** [`config/routine.json`](config/routine.json) holds
+4. **Routine steps.** [`config/routine.json`](config/routine.json) holds
    the ordered launch → login → navigate → record → close sequence. Edit it
    if the actual click order differs.
+
+### Why a Scheduled Task, not a direct launch?
+
+Two things ruled out the simpler options:
+- Launching the game's exe directly (even elevated, even with the
+  `__COMPAT_LAYER=RunAsInvoker` environment variable set) still triggered a
+  UAC prompt with no way found to suppress it — the launcher requests
+  elevation for it explicitly, which overrides both approaches.
+- Directly running the game's raw exe file (bypassing the official
+  launcher's own start flow) got **flagged by anti-cheat as a "hacking
+  program."** Don't try this — it risks your account, not just a broken
+  script.
+
+A Scheduled Task configured with `RunLevel: Highest`, pointed at the
+**launcher** exe with the same "jump straight to this game" argument a
+desktop shortcut uses (e.g. `nxl://launch/10100` for MapleStory) sidesteps
+both problems: it's pre-elevated (no prompt) and goes through the official
+launch path (no anti-cheat flag) — functionally identical to right-clicking
+the desktop shortcut and choosing "Run as administrator," just without the
+interactive prompt.
 
 ## Run the full session (launch game, log in, record both tabs, close)
 
 From the Windows Python venv set up above:
 
 ```powershell
-python -m meso_market_collector.session --launcher-path "C:\Games\Launcher.exe"
+python -m meso_market_collector.session --task-name "MesoMarketCollector_MapleStoryViaLauncher"
 ```
 
-The launcher path is passed in each run rather than stored in config.
-Recorded prices are appended to `data/price_history.csv`. Price parsing
-(turning a screenshot into a number) isn't implemented yet — see the note in
+The task name is passed in each run rather than stored in config. Recorded
+prices are appended to `data/price_history.csv`. Price parsing (turning a
+screenshot into a number) isn't implemented yet — see the note in
 [`meso_market_collector/parser.py`](meso_market_collector/parser.py) for
 options (OCR via pytesseract, etc). Until then, each recorded box also saves
 its raw crop to `data/snapshots/` so no data is lost.

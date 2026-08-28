@@ -30,7 +30,7 @@ class ScreenActions:
     def __init__(
         self,
         poll_interval: float = 0.5,
-        timeout: float = 90.0,
+        timeout: float = 180.0,
         stable_seconds: float = 1.0,
         confidence: float = 0.8,
         templates_dir: Path = TEMPLATES_DIR,
@@ -46,8 +46,19 @@ class ScreenActions:
             str(self.templates_dir / template), confidence=self.confidence
         )
 
-    def launch(self, launcher_path: str) -> None:
-        subprocess.Popen([launcher_path])
+    def launch(self, task_name: str) -> None:
+        # Runs a pre-configured Scheduled Task (RunLevel: Highest) rather
+        # than the exe directly. This avoids two problems found in practice:
+        # a UAC prompt neither a scheduled task nor the RunAsInvoker env var
+        # could suppress when starting the game exe's usual way (it's
+        # explicitly elevated by its caller, not just manifest-declared),
+        # and - more importantly - directly launching the raw game exe (even
+        # elevated) got flagged by anti-cheat as a "hacking program" for
+        # bypassing the official launch flow. The task instead runs the
+        # official launcher with its own "jump straight to this game"
+        # argument (e.g. nxl://launch/10100), matching a normal desktop
+        # shortcut's behavior, which anti-cheat doesn't flag.
+        subprocess.run(["schtasks", "/run", "/tn", task_name], check=True)
 
     def wait_for_image(self, template: str):
         deadline = time.monotonic() + self.timeout

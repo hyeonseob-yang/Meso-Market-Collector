@@ -1,8 +1,5 @@
 [
   {"action": "launch"},
-  {"action": "click_image", "template": "play_button.png"},
-  {"action": "wait_for_image", "template": "windows_run_prompt.png"},
-  {"action": "click_image", "template": "windows_run_button.png"},
   {"action": "wait_for_image", "template": "login_button.png"},
   {"action": "wait_for_stable_image", "template": "login_button.png"},
   {"action": "click_image", "template": "login_button.png"},
