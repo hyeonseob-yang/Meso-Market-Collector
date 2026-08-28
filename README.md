@@ -132,12 +132,6 @@ closing:
   `__COMPAT_LAYER=RunAsInvoker` environment variable set) still triggered a
   UAC prompt with no way found to suppress it — the launcher requests
   elevation for it explicitly, which overrides both approaches.
-- Directly running the game's raw exe file (bypassing the official
-  launcher's own start flow) triggered an in-game warning: **"Please
-  delete the hacking program from the MapleStory launch folder and reopen
-  the game."** Don't try this — it risks your account, not just a broken
-  script. Launching through the launcher's own flow (as the Scheduled Task
-  below does) doesn't trigger it.
 - Once actually logged in, **simulated mouse clicks and keyboard shortcuts
   (Alt+F4) don't register in the game client at all** — found while trying
   to click Log In/Quick Move/Meso Market and to close via Alt+F4. Confirmed
@@ -146,10 +140,9 @@ closing:
   input method, windowed vs. fullscreen mode — none of it changed the
   result). The same symptom (mouse position updates, hover-highlighting
   works, but click/key state never registers) reproduces identically in
-  Terraria, an unrelated game, so it isn't specific to this one game or its
-  particular protections. Either way, it isn't something to try to work
-  around further: getting synthetic input to register past this - via a
-  kernel-level input driver, direct calls to the legacy `mouse_event`/
+  Terraria, an unrelated game. Either way, it isn't something to try to
+  work around further: getting synthetic input to register past this - via
+  a kernel-level input driver, direct calls to the legacy `mouse_event`/
   `keybd_event` Win32 APIs, or similar - is the same mechanism real game
   bots need, and isn't something this project pursues regardless of intent
   or how narrow the immediate use would be. Directly killing the elevated

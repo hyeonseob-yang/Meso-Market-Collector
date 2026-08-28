@@ -59,16 +59,13 @@ class ScreenActions:
 
     def launch(self, task_name: str) -> None:
         # Runs a pre-configured Scheduled Task (RunLevel: Highest) rather
-        # than the exe directly. This avoids two problems found in practice:
-        # a UAC prompt neither a scheduled task nor the RunAsInvoker env var
-        # could suppress when starting the game exe's usual way (it's
-        # explicitly elevated by its caller, not just manifest-declared),
-        # and - more importantly - directly launching the raw game exe (even
-        # elevated) triggered an in-game "delete the hacking program"
-        # warning for bypassing the official launch flow. The task instead
-        # runs the official launcher with its own "jump straight to this
-        # game" argument (e.g. nxl://launch/10100), matching a normal
-        # desktop shortcut's behavior, which doesn't trigger that warning.
+        # than the exe directly - a UAC prompt neither a scheduled task nor
+        # the RunAsInvoker env var could suppress when starting the game
+        # exe's usual way (it's explicitly elevated by its caller, not just
+        # manifest-declared). The task instead runs the official launcher
+        # with its own "jump straight to this game" argument (e.g.
+        # nxl://launch/10100), matching a normal desktop shortcut's
+        # behavior. See README.md for more.
         self._run_scheduled_task(task_name)
 
     def run_task(self, task_name: str) -> None:

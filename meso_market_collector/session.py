@@ -4,8 +4,7 @@
 
 The task name refers to a pre-configured Windows Scheduled Task (RunLevel:
 Highest) that launches the game - see README.md for why a raw exe path
-isn't used here (UAC prompts that couldn't be suppressed, and a direct exe
-launch triggering an in-game "delete the hacking program" warning).
+isn't used here.
 """
 from __future__ import annotations
 
