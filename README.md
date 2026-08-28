@@ -133,29 +133,30 @@ closing:
   UAC prompt with no way found to suppress it — the launcher requests
   elevation for it explicitly, which overrides both approaches.
 - Directly running the game's raw exe file (bypassing the official
-  launcher's own start flow) got **flagged by anti-cheat as a "hacking
-  program."** Don't try this — it risks your account, not just a broken
-  script.
+  launcher's own start flow) triggered an in-game warning: **"Please
+  delete the hacking program from the MapleStory launch folder and reopen
+  the game."** Don't try this — it risks your account, not just a broken
+  script. Launching through the launcher's own flow (as the Scheduled Task
+  below does) doesn't trigger it.
 - Once actually logged in, **simulated mouse clicks and keyboard shortcuts
   (Alt+F4) don't register in the game client at all** — found while trying
   to click Log In/Quick Move/Meso Market and to close via Alt+F4. Confirmed
   it wasn't a focus or coordinate problem (explicit window activation,
   verified-correct click coordinates, `pydirectinput` as an alternative
   input method, windowed vs. fullscreen mode — none of it changed the
-  result). **The cause isn't actually confirmed** — the same symptom (mouse
-  position updates, hover-highlighting works, but click/key state never
-  registers) reproduces identically in Terraria, which has no anti-cheat at
-  all, so it's likely a real input-stack/engine-architecture gap rather
-  than deliberate filtering, though MapleStory could also have its own
-  additional layer on top. Either way, it isn't something to try to work
+  result). The same symptom (mouse position updates, hover-highlighting
+  works, but click/key state never registers) reproduces identically in
+  Terraria, an unrelated game, so it isn't specific to this one game or its
+  particular protections. Either way, it isn't something to try to work
   around further: getting synthetic input to register past this - via a
   kernel-level input driver, direct calls to the legacy `mouse_event`/
   `keybd_event` Win32 APIs, or similar - is the same mechanism real game
   bots need, and isn't something this project pursues regardless of intent
   or how narrow the immediate use would be. Directly killing the elevated
   game process also fails the same way `Stop-Process` fails on any elevated
-  process from a non-elevated caller (`Access is denied`) — nothing
-  anti-cheat-specific there, just normal Windows privilege separation.
+  process from a non-elevated caller (`Access is denied`) — just normal
+  Windows privilege separation, unrelated to the input-registration issue
+  above.
 
 A Scheduled Task configured with `RunLevel: Highest` sidesteps all of
 this by never asking the game to accept simulated input as if it were

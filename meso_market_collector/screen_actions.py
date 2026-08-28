@@ -64,11 +64,11 @@ class ScreenActions:
         # could suppress when starting the game exe's usual way (it's
         # explicitly elevated by its caller, not just manifest-declared),
         # and - more importantly - directly launching the raw game exe (even
-        # elevated) got flagged by anti-cheat as a "hacking program" for
-        # bypassing the official launch flow. The task instead runs the
-        # official launcher with its own "jump straight to this game"
-        # argument (e.g. nxl://launch/10100), matching a normal desktop
-        # shortcut's behavior, which anti-cheat doesn't flag.
+        # elevated) triggered an in-game "delete the hacking program"
+        # warning for bypassing the official launch flow. The task instead
+        # runs the official launcher with its own "jump straight to this
+        # game" argument (e.g. nxl://launch/10100), matching a normal
+        # desktop shortcut's behavior, which doesn't trigger that warning.
         self._run_scheduled_task(task_name)
 
     def run_task(self, task_name: str) -> None:
