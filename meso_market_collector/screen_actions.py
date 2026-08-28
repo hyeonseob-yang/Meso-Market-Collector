@@ -40,7 +40,6 @@ class ScreenActions:
         self.stable_seconds = stable_seconds
         self.confidence = confidence
         self.templates_dir = templates_dir
-        self._process: subprocess.Popen | None = None
 
     def _locate(self, template: str):
         return pyautogui.locateOnScreen(
@@ -48,7 +47,7 @@ class ScreenActions:
         )
 
     def launch(self, launcher_path: str) -> None:
-        self._process = subprocess.Popen([launcher_path])
+        subprocess.Popen([launcher_path])
 
     def wait_for_image(self, template: str):
         deadline = time.monotonic() + self.timeout
@@ -103,12 +102,3 @@ class ScreenActions:
 
     def hotkey(self, keys: list[str]) -> None:
         pyautogui.hotkey(*keys)
-
-    def close(self) -> None:
-        # Note: if the launcher spawns the actual game as a separate,
-        # detached process and exits on its own, this only terminates the
-        # (already-gone) launcher PID, not the game. If "close" isn't
-        # actually closing the game, this needs to find the game's own
-        # process (e.g. by name via psutil) instead.
-        if self._process is not None:
-            self._process.terminate()

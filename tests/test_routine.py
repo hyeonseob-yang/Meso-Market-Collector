@@ -29,9 +29,6 @@ class FakeActions:
     def record_prices(self, region_names, label_prefix=None):
         self.calls.append(("record_prices", tuple(region_names), label_prefix))
 
-    def close(self):
-        self.calls.append(("close",))
-
     def press_key(self, key):
         self.calls.append(("press_key", key))
 
@@ -49,7 +46,6 @@ def test_load_steps_parses_json(tmp_path):
                 {"action": "record_prices", "regions": ["meso_1", "meso_2"], "label_prefix": "sell"},
                 {"action": "press_key", "key": "esc"},
                 {"action": "hotkey", "keys": ["alt", "f4"]},
-                {"action": "close"},
             ]
         )
     )
@@ -62,7 +58,6 @@ def test_load_steps_parses_json(tmp_path):
         Step(action="record_prices", regions=["meso_1", "meso_2"], label_prefix="sell"),
         Step(action="press_key", key="esc"),
         Step(action="hotkey", keys=["alt", "f4"]),
-        Step(action="close"),
     ]
 
 
@@ -86,7 +81,8 @@ def test_run_routine_dispatches_each_step_in_order():
             regions=["meso_1", "meso_2", "meso_3", "meso_4"],
             label_prefix="buy",
         ),
-        Step(action="close"),
+        Step(action="hotkey", keys=["alt", "f4"]),
+        Step(action="click_image", template="yes_button.png"),
     ]
     actions = FakeActions()
 
@@ -103,7 +99,8 @@ def test_run_routine_dispatches_each_step_in_order():
         ("record_prices", ("meso_1", "meso_2", "meso_3", "meso_4"), "sell"),
         ("click_image", "buy_mesos_tab.png"),
         ("record_prices", ("meso_1", "meso_2", "meso_3", "meso_4"), "buy"),
-        ("close",),
+        ("hotkey", ("alt", "f4")),
+        ("click_image", "yes_button.png"),
     ]
 
 
