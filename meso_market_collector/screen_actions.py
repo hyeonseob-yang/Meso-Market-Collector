@@ -101,6 +101,9 @@ class ScreenActions:
     def press_key(self, key: str) -> None:
         pyautogui.press(key)
 
+    def hotkey(self, keys: list[str]) -> None:
+        pyautogui.hotkey(*keys)
+
     def close(self) -> None:
         # Note: if the launcher spawns the actual game as a separate,
         # detached process and exits on its own, this only terminates the
