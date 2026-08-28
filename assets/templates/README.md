@@ -20,16 +20,21 @@ the exact filename `config/routine.json` references:
 **Secure Desktop caveat:** the UAC elevation prompt above runs on Windows'
 Secure Desktop (screen dims, and normal screenshot tools error/return
 nothing while it's open). Neither capturing its template nor the automated
-`wait_for_image`/`click_image` steps at runtime will work there: nothing
-outside the secure desktop, including PyAutoGUI, can see or click into it.
-This isn't just a calibration hurdle — it'll break the routine every time
-this prompt appears during an actual run. Fix: disable "switch to the
-secure desktop when prompting for elevation" (Local Security Policy →
-Local Policies → Security Options, or the `PromptOnSecureDesktop` registry
-value). This is a real (if usually minor) security trade-off — it's what
-stops a malicious app from drawing a fake elevation prompt over the real
-one — worth being aware you've turned it off if you keep this setup
-long-term.
+`wait_and_click_image`/`click_image` steps at runtime will work there:
+nothing outside the secure desktop, including PyAutoGUI, can see or click
+into it. Fix — Control Panel → User Account Control Settings → "Show more
+details" → "Change when these notifications appear" → move the slider to
+"Notify me only when apps try to make changes to my computer (do not dim my
+desktop)" → OK → Yes.
+
+This is a real (if usually minor) security trade-off — it's what stops a
+malicious app from drawing a fake elevation prompt over the real one — so
+it's reasonable to only turn it on while capturing the template and revert
+it after. But if this same UAC prompt reappears every time the routine
+actually launches the game (not just once, e.g. after a game update), the
+automated click step will hit the same secure-desktop block your screenshot
+tool did — so the setting would need to stay changed while running the
+routine for real, not just during calibration.
 
 Tips:
 - Crop tight and avoid text that could change (timestamps, counters).
