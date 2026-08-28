@@ -152,18 +152,22 @@ management, not simulated input the game has to interpret at all.
 capturing price regions (pure screenshot reads, no input needed), and
 closing are all automatable. Logging in and navigating the actual game
 world (Quick Move, Meso Market, tab switching) needs real input, so the
-routine uses `wait_for_user` steps there instead of trying to click them:
-it prints what to do and blocks on `input()` until you press Enter, then
-resumes the automated parts. So a run looks like: script launches the
-game and waits for the login screen → **you** log in and navigate to the
-Meso Market Sell tab → press Enter → script captures Sell prices → **you**
-click the Buy tab → press Enter → script captures Buy prices and closes
-the game.
+routine polls for a screenshot match instead of trying to click through
+those steps — `wait_for_image` with a `message` prints what to do, then
+keeps checking the screen until it sees you've actually gotten there
+(no Enter needed; see `assets/templates/README.md` for the `_active`
+template images this needs). So a run looks like: script launches the
+game, waits for the login screen, prints "log in and navigate to the Sell
+tab" → **you** do that → script notices and captures Sell prices, prints
+"click the Buy tab" → **you** do that → script notices, captures Buy
+prices, and closes the game.
 
 ## Run the full session (launch game, log in, record both tabs, close)
 
-From the Windows Python venv set up above, run **interactively** (it'll
-pause and prompt you at the manual steps, so don't background/detach it):
+From the Windows Python venv set up above, run where you can see its
+output (it prints what to do at each manual step, then polls the screen
+and continues on its own once it detects you've done it — no keypress
+needed, but you do need to actually be at the game to do the clicking):
 
 ```powershell
 python -m meso_market_collector.session --task-name "MesoMarketCollector_MapleStoryViaLauncher"

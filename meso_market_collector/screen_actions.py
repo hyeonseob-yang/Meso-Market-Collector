@@ -76,7 +76,9 @@ class ScreenActions:
         # `taskkill /F /IM MapleStory.exe`) sidesteps both problems at once.
         self._run_scheduled_task(task_name)
 
-    def wait_for_image(self, template: str):
+    def wait_for_image(self, template: str, message: str | None = None):
+        if message:
+            print(f"\n{message}\n(waiting for {template!r} to appear on screen...)")
         deadline = time.monotonic() + self.timeout
         while time.monotonic() < deadline:
             box = self._locate(template)

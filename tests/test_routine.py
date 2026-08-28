@@ -17,8 +17,8 @@ class FakeActions:
     def wait_and_click_image(self, template):
         self.calls.append(("wait_and_click_image", template))
 
-    def wait_for_image(self, template):
-        self.calls.append(("wait_for_image", template))
+    def wait_for_image(self, template, message=None):
+        self.calls.append(("wait_for_image", template, message))
 
     def wait_for_stable_image(self, template):
         self.calls.append(("wait_for_stable_image", template))
@@ -83,15 +83,20 @@ def test_run_routine_dispatches_each_step_in_order():
         Step(action="focus_window", window_title="MapleStory"),
         Step(action="wait_for_image", template="login_button.png"),
         Step(
-            action="wait_for_user",
-            message="Log in and navigate to the Meso Market Sell tab, then press Enter",
+            action="wait_for_image",
+            template="sell_mesos_active.png",
+            message="Log in and navigate to the Meso Market Sell tab",
         ),
         Step(
             action="record_prices",
             regions=["meso_1", "meso_2", "meso_3", "meso_4"],
             label_prefix="sell",
         ),
-        Step(action="wait_for_user", message="Click the Buy Mesos tab, then press Enter"),
+        Step(
+            action="wait_for_image",
+            template="buy_mesos_active.png",
+            message="Click the Buy Mesos tab",
+        ),
         Step(
             action="record_prices",
             regions=["meso_1", "meso_2", "meso_3", "meso_4"],
@@ -106,10 +111,10 @@ def test_run_routine_dispatches_each_step_in_order():
     assert actions.calls == [
         ("launch", "MesoMarketCollector_MapleStoryViaLauncher"),
         ("focus_window", "MapleStory"),
-        ("wait_for_image", "login_button.png"),
-        ("wait_for_user", "Log in and navigate to the Meso Market Sell tab, then press Enter"),
+        ("wait_for_image", "login_button.png", None),
+        ("wait_for_image", "sell_mesos_active.png", "Log in and navigate to the Meso Market Sell tab"),
         ("record_prices", ("meso_1", "meso_2", "meso_3", "meso_4"), "sell"),
-        ("wait_for_user", "Click the Buy Mesos tab, then press Enter"),
+        ("wait_for_image", "buy_mesos_active.png", "Click the Buy Mesos tab"),
         ("record_prices", ("meso_1", "meso_2", "meso_3", "meso_4"), "buy"),
         ("run_task", "MesoMarketCollector_KillMapleStory"),
     ]
@@ -145,6 +150,26 @@ def test_run_routine_dispatches_run_task():
     run_routine([Step(action="run_task", task_name="SomeOtherTask")], task_name="x", actions=actions)
 
     assert actions.calls == [("run_task", "SomeOtherTask")]
+
+
+def test_run_routine_dispatches_wait_for_image_with_message():
+    actions = FakeActions()
+
+    run_routine(
+        [Step(action="wait_for_image", template="thing.png", message="do the thing")],
+        task_name="x",
+        actions=actions,
+    )
+
+    assert actions.calls == [("wait_for_image", "thing.png", "do the thing")]
+
+
+def test_run_routine_dispatches_wait_for_image_without_message():
+    actions = FakeActions()
+
+    run_routine([Step(action="wait_for_image", template="thing.png")], task_name="x", actions=actions)
+
+    assert actions.calls == [("wait_for_image", "thing.png", None)]
 
 
 def test_run_routine_dispatches_wait_for_user():
