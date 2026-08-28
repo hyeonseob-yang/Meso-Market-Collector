@@ -23,6 +23,7 @@ class Step:
     keys: list[str] | None = None
     window_title: str | None = None
     task_name: str | None = None
+    message: str | None = None
 
 
 def load_steps(path: Path) -> list[Step]:
@@ -45,6 +46,7 @@ class GameActions(Protocol):
     def hotkey(self, keys: list[str]) -> None: ...
     def focus_window(self, window_title: str) -> None: ...
     def run_task(self, task_name: str) -> None: ...
+    def wait_for_user(self, message: str) -> None: ...
 
 
 def run_routine(steps: list[Step], task_name: str, actions: GameActions) -> None:
@@ -69,5 +71,7 @@ def run_routine(steps: list[Step], task_name: str, actions: GameActions) -> None
             actions.focus_window(step.window_title)
         elif step.action == "run_task":
             actions.run_task(step.task_name)
+        elif step.action == "wait_for_user":
+            actions.wait_for_user(step.message)
         else:
             raise ValueError(f"Unknown action: {step.action!r}")

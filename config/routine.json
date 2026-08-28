@@ -1,13 +1,10 @@
 [
   {"action": "launch"},
   {"action": "wait_for_image", "template": "login_button.png"},
-  {"action": "wait_for_stable_image", "template": "login_button.png"},
   {"action": "focus_window", "window_title": "MapleStory"},
-  {"action": "click_image", "template": "login_button.png"},
-  {"action": "click_image", "template": "quick_move_button.png"},
-  {"action": "click_image", "template": "meso_market_icon.png"},
+  {"action": "wait_for_user", "message": "Log in, click Quick Move, click Meso Market, and make sure the Sell Mesos tab is showing."},
   {"action": "record_prices", "regions": ["meso_1", "meso_2", "meso_3", "meso_4"], "label_prefix": "sell"},
-  {"action": "click_image", "template": "buy_mesos_tab.png"},
+  {"action": "wait_for_user", "message": "Click the Buy Mesos tab."},
   {"action": "record_prices", "regions": ["meso_1", "meso_2", "meso_3", "meso_4"], "label_prefix": "buy"},
   {"action": "run_task", "task_name": "MesoMarketCollector_KillMapleStory"}
 ]

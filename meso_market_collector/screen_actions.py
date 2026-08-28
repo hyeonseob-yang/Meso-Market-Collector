@@ -130,6 +130,16 @@ class ScreenActions:
     def hotkey(self, keys: list[str]) -> None:
         pyautogui.hotkey(*keys)
 
+    def wait_for_user(self, message: str) -> None:
+        # Clicks and key presses don't register inside the actual game
+        # client (confirmed across both MapleStory and Terraria - not
+        # something worth trying to work around further, see README).
+        # Everything that needs a real click inside the game itself is a
+        # manual checkpoint: print what to do, block until Enter confirms
+        # it's done, then resume the automated parts (screenshot capture,
+        # scheduled-task launch/close) that don't need simulated input.
+        input(f"\n{message}\n(press Enter to continue) ")
+
     def focus_window(self, window_title: str) -> None:
         # A click's first hit on an unfocused window can just activate it
         # rather than actually registering on whatever's underneath the

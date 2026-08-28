@@ -92,14 +92,18 @@ actually running the game automation.
    (non-admin) shell while the game is open — it should close immediately,
    no prompt.
 
-4. **Template images.** The routine finds buttons (Log In, Quick Move,
-   etc.) by matching small reference screenshots. See
-   [`assets/templates/README.md`](assets/templates/README.md) for exactly
-   which crops to capture and their required filenames.
+4. **Template image.** Only `login_button.png` is still used — to confirm
+   the login screen has actually loaded before handing off to you (see
+   [`assets/templates/README.md`](assets/templates/README.md)). The others
+   (Quick Move, Meso Market, Buy tab, exit-confirm) were used to click
+   through those steps automatically; that doesn't work (see below) so
+   they're no longer referenced by the routine, though the files are still
+   there in case that changes.
 
 5. **Routine steps.** [`config/routine.json`](config/routine.json) holds
-   the ordered launch → login → navigate → record → close sequence. Edit it
-   if the actual click order differs.
+   the ordered launch → login → navigate → record → close sequence,
+   including `wait_for_user` checkpoints where a real click is needed (see
+   "What's still automatable" below). Edit it if the actual flow differs.
 
 ### Why a Scheduled Task, not a direct launch/close?
 
@@ -119,15 +123,20 @@ closing:
   it wasn't a focus or coordinate problem (explicit window activation,
   verified-correct click coordinates, `pydirectinput` as an alternative
   input method, windowed vs. fullscreen mode — none of it changed the
-  result). This is consistent with anti-cheat filtering synthetic input,
-  and isn't something to try to work around — see the retrospective in
-  this project's conversation history if you're curious, but the short
-  version is: don't attempt lower-level input injection to defeat this:
-  that's the same mechanism real game bots need, regardless of intent.
-  Directly killing the elevated game process also fails the same way
-  `Stop-Process` fails on any elevated process from a non-elevated caller
-  (`Access is denied`) — nothing anti-cheat-specific there, just normal
-  Windows privilege separation.
+  result). **The cause isn't actually confirmed** — the same symptom (mouse
+  position updates, hover-highlighting works, but click/key state never
+  registers) reproduces identically in Terraria, which has no anti-cheat at
+  all, so it's likely a real input-stack/engine-architecture gap rather
+  than deliberate filtering, though MapleStory could also have its own
+  additional layer on top. Either way, it isn't something to try to work
+  around further: getting synthetic input to register past this - via a
+  kernel-level input driver, direct calls to the legacy `mouse_event`/
+  `keybd_event` Win32 APIs, or similar - is the same mechanism real game
+  bots need, and isn't something this project pursues regardless of intent
+  or how narrow the immediate use would be. Directly killing the elevated
+  game process also fails the same way `Stop-Process` fails on any elevated
+  process from a non-elevated caller (`Access is denied`) — nothing
+  anti-cheat-specific there, just normal Windows privilege separation.
 
 A Scheduled Task configured with `RunLevel: Highest` sidesteps all of
 this by never asking the game to accept simulated input as if it were
@@ -139,17 +148,22 @@ just without the interactive prompt. The **close** task just runs
 `taskkill` directly against the process, which is normal OS process
 management, not simulated input the game has to interpret at all.
 
-**What's still automatable vs. not:** launching, reaching the login/menu
-screens, and closing are all automatable (they don't require the game to
-accept synthetic input as genuine). Logging in and navigating the actual
-game world (Quick Move, Meso Market, tab switching) apparently requires
-real input and currently needs a human — the routine below still lists
-those steps as a record of the intended flow, but expect them to need you
-at the keyboard/mouse for that portion until/unless that changes.
+**What's still automatable vs. not:** launching, reaching the login screen,
+capturing price regions (pure screenshot reads, no input needed), and
+closing are all automatable. Logging in and navigating the actual game
+world (Quick Move, Meso Market, tab switching) needs real input, so the
+routine uses `wait_for_user` steps there instead of trying to click them:
+it prints what to do and blocks on `input()` until you press Enter, then
+resumes the automated parts. So a run looks like: script launches the
+game and waits for the login screen → **you** log in and navigate to the
+Meso Market Sell tab → press Enter → script captures Sell prices → **you**
+click the Buy tab → press Enter → script captures Buy prices and closes
+the game.
 
 ## Run the full session (launch game, log in, record both tabs, close)
 
-From the Windows Python venv set up above:
+From the Windows Python venv set up above, run **interactively** (it'll
+pause and prompt you at the manual steps, so don't background/detach it):
 
 ```powershell
 python -m meso_market_collector.session --task-name "MesoMarketCollector_MapleStoryViaLauncher"

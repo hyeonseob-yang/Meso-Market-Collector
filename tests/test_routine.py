@@ -41,6 +41,9 @@ class FakeActions:
     def run_task(self, task_name):
         self.calls.append(("run_task", task_name))
 
+    def wait_for_user(self, message):
+        self.calls.append(("wait_for_user", message))
+
 
 def test_load_steps_parses_json(tmp_path):
     routine_file = tmp_path / "routine.json"
@@ -49,7 +52,7 @@ def test_load_steps_parses_json(tmp_path):
             [
                 {"action": "launch"},
                 {"action": "focus_window", "window_title": "MapleStory"},
-                {"action": "click_image", "template": "login_button.png"},
+                {"action": "wait_for_user", "message": "Log in, then press Enter"},
                 {"action": "record_prices", "regions": ["meso_1", "meso_2"], "label_prefix": "sell"},
                 {"action": "press_key", "key": "esc"},
                 {"action": "hotkey", "keys": ["alt", "f4"]},
@@ -63,7 +66,7 @@ def test_load_steps_parses_json(tmp_path):
     assert steps == [
         Step(action="launch"),
         Step(action="focus_window", window_title="MapleStory"),
-        Step(action="click_image", template="login_button.png"),
+        Step(action="wait_for_user", message="Log in, then press Enter"),
         Step(action="record_prices", regions=["meso_1", "meso_2"], label_prefix="sell"),
         Step(action="press_key", key="esc"),
         Step(action="hotkey", keys=["alt", "f4"]),
@@ -79,16 +82,16 @@ def test_run_routine_dispatches_each_step_in_order():
         Step(action="launch"),
         Step(action="focus_window", window_title="MapleStory"),
         Step(action="wait_for_image", template="login_button.png"),
-        Step(action="wait_for_stable_image", template="login_button.png"),
-        Step(action="click_image", template="login_button.png"),
-        Step(action="click_image", template="quick_move_button.png"),
-        Step(action="click_image", template="meso_market_icon.png"),
+        Step(
+            action="wait_for_user",
+            message="Log in and navigate to the Meso Market Sell tab, then press Enter",
+        ),
         Step(
             action="record_prices",
             regions=["meso_1", "meso_2", "meso_3", "meso_4"],
             label_prefix="sell",
         ),
-        Step(action="click_image", template="buy_mesos_tab.png"),
+        Step(action="wait_for_user", message="Click the Buy Mesos tab, then press Enter"),
         Step(
             action="record_prices",
             regions=["meso_1", "meso_2", "meso_3", "meso_4"],
@@ -104,12 +107,9 @@ def test_run_routine_dispatches_each_step_in_order():
         ("launch", "MesoMarketCollector_MapleStoryViaLauncher"),
         ("focus_window", "MapleStory"),
         ("wait_for_image", "login_button.png"),
-        ("wait_for_stable_image", "login_button.png"),
-        ("click_image", "login_button.png"),
-        ("click_image", "quick_move_button.png"),
-        ("click_image", "meso_market_icon.png"),
+        ("wait_for_user", "Log in and navigate to the Meso Market Sell tab, then press Enter"),
         ("record_prices", ("meso_1", "meso_2", "meso_3", "meso_4"), "sell"),
-        ("click_image", "buy_mesos_tab.png"),
+        ("wait_for_user", "Click the Buy Mesos tab, then press Enter"),
         ("record_prices", ("meso_1", "meso_2", "meso_3", "meso_4"), "buy"),
         ("run_task", "MesoMarketCollector_KillMapleStory"),
     ]
@@ -145,6 +145,14 @@ def test_run_routine_dispatches_run_task():
     run_routine([Step(action="run_task", task_name="SomeOtherTask")], task_name="x", actions=actions)
 
     assert actions.calls == [("run_task", "SomeOtherTask")]
+
+
+def test_run_routine_dispatches_wait_for_user():
+    actions = FakeActions()
+
+    run_routine([Step(action="wait_for_user", message="do the thing")], task_name="x", actions=actions)
+
+    assert actions.calls == [("wait_for_user", "do the thing")]
 
 
 def test_run_routine_rejects_unknown_action():
