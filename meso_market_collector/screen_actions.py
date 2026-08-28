@@ -43,9 +43,16 @@ class ScreenActions:
         self.templates_dir = templates_dir
 
     def _locate(self, template: str):
-        return pyautogui.locateOnScreen(
-            str(self.templates_dir / template), confidence=self.confidence
-        )
+        # locateOnScreen raises ImageNotFoundException rather than
+        # returning None when nothing matches - treat that the same as
+        # "not found yet" so callers' retry loops actually get to retry,
+        # instead of crashing on the very first failed check.
+        try:
+            return pyautogui.locateOnScreen(
+                str(self.templates_dir / template), confidence=self.confidence
+            )
+        except pyautogui.ImageNotFoundException:
+            return None
 
     def _run_scheduled_task(self, task_name: str) -> None:
         subprocess.run(["schtasks", "/run", "/tn", task_name], check=True)
@@ -78,7 +85,7 @@ class ScreenActions:
 
     def wait_for_image(self, template: str, message: str | None = None):
         if message:
-            print(f"\n{message}\n(waiting for {template!r} to appear on screen...)")
+            print(f"\n{message}\n(waiting for {template!r} to appear on screen...)", flush=True)
         deadline = time.monotonic() + self.timeout
         while time.monotonic() < deadline:
             box = self._locate(template)
@@ -153,4 +160,12 @@ class ScreenActions:
         window = windows[0]
         if window.isMinimized:
             window.restore()
-        window.activate()
+        try:
+            window.activate()
+        except gw.PyGetWindowException as exc:
+            # pygetwindow's activate() raises even when the underlying
+            # Windows call actually succeeded - a known false positive.
+            # "Error code from Windows: 0" literally means no error
+            # occurred, so only re-raise for an actual nonzero code.
+            if "Error code from Windows: 0" not in str(exc):
+                raise
