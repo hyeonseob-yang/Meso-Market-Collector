@@ -26,6 +26,9 @@ htmlcov/
 # Collected data (screen-resolution/game-specific, not source)
 data/
 
+# Runtime logs
+*.log
+
 # Editors / OS
 .vscode/
 .idea/

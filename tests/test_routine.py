@@ -26,8 +26,8 @@ class FakeActions:
     def click_image(self, template):
         self.calls.append(("click_image", template))
 
-    def record_prices(self, region_names):
-        self.calls.append(("record_prices", tuple(region_names)))
+    def record_prices(self, region_names, label_prefix=None):
+        self.calls.append(("record_prices", tuple(region_names), label_prefix))
 
     def close(self):
         self.calls.append(("close",))
@@ -40,7 +40,7 @@ def test_load_steps_parses_json(tmp_path):
             [
                 {"action": "launch"},
                 {"action": "click_image", "template": "login_button.png"},
-                {"action": "record_prices", "regions": ["sell_meso_1", "sell_meso_2"]},
+                {"action": "record_prices", "regions": ["meso_1", "meso_2"], "label_prefix": "sell"},
                 {"action": "close"},
             ]
         )
@@ -51,7 +51,7 @@ def test_load_steps_parses_json(tmp_path):
     assert steps == [
         Step(action="launch"),
         Step(action="click_image", template="login_button.png"),
-        Step(action="record_prices", regions=["sell_meso_1", "sell_meso_2"]),
+        Step(action="record_prices", regions=["meso_1", "meso_2"], label_prefix="sell"),
         Step(action="close"),
     ]
 
@@ -65,9 +65,17 @@ def test_run_routine_dispatches_each_step_in_order():
         Step(action="click_image", template="login_button.png"),
         Step(action="click_image", template="quick_move_button.png"),
         Step(action="click_image", template="meso_market_icon.png"),
-        Step(action="record_prices", regions=["sell_meso_1", "sell_meso_2", "sell_meso_3", "sell_meso_4"]),
+        Step(
+            action="record_prices",
+            regions=["meso_1", "meso_2", "meso_3", "meso_4"],
+            label_prefix="sell",
+        ),
         Step(action="click_image", template="buy_mesos_tab.png"),
-        Step(action="record_prices", regions=["buy_meso_1", "buy_meso_2", "buy_meso_3", "buy_meso_4"]),
+        Step(
+            action="record_prices",
+            regions=["meso_1", "meso_2", "meso_3", "meso_4"],
+            label_prefix="buy",
+        ),
         Step(action="close"),
     ]
     actions = FakeActions()
@@ -82,9 +90,9 @@ def test_run_routine_dispatches_each_step_in_order():
         ("click_image", "login_button.png"),
         ("click_image", "quick_move_button.png"),
         ("click_image", "meso_market_icon.png"),
-        ("record_prices", ("sell_meso_1", "sell_meso_2", "sell_meso_3", "sell_meso_4")),
+        ("record_prices", ("meso_1", "meso_2", "meso_3", "meso_4"), "sell"),
         ("click_image", "buy_mesos_tab.png"),
-        ("record_prices", ("buy_meso_1", "buy_meso_2", "buy_meso_3", "buy_meso_4")),
+        ("record_prices", ("meso_1", "meso_2", "meso_3", "meso_4"), "buy"),
         ("close",),
     ]
 

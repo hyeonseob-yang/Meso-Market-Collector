@@ -32,14 +32,19 @@ actually running the game automation.
 
 ## Configure
 
-1. **Region boxes.** With the game window in place, find the pixel
-   coordinates of each price box:
+1. **Region boxes.** The 4 Sell-tab and 4 Buy-tab price boxes sit at the
+   same on-screen position — only the tab changes — so `config/regions.json`
+   defines just one shared set, `meso_1..4`. With the game window in place,
+   find the pixel coordinates of each box:
    ```bash
    python -m tools.find_coords
    ```
-   Edit [`config/regions.json`](config/regions.json) — placeholders are
-   already there for `sell_meso_1..4` and `buy_meso_1..4` (assumes 4 boxes
-   per tab; add/remove entries if the real layout differs).
+   Edit [`config/regions.json`](config/regions.json) (placeholders assume 4
+   boxes; add/remove entries if the real layout differs). The routine
+   captures this same set twice — once per tab — and labels each recording
+   `sell_meso_*`/`buy_meso_*` via `label_prefix` in
+   [`config/routine.json`](config/routine.json), so the two tabs still end
+   up as distinct rows in the CSV.
 
 2. **Template images.** The routine finds buttons (Play, Log In, Quick
    Move, etc.) by matching small reference screenshots. See

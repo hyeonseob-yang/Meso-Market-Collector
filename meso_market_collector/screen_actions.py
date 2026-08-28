@@ -85,15 +85,18 @@ class ScreenActions:
     def wait_and_click_image(self, template: str) -> None:
         self.click_image(template)
 
-    def record_prices(self, region_names: list[str]) -> None:
+    def record_prices(self, region_names: list[str], label_prefix: str | None = None) -> None:
+        # region boxes are shared between tabs (same on-screen position); the
+        # prefix (e.g. "sell"/"buy") is what keeps the recorded rows apart.
         regions_by_name = {r.name: r for r in load_regions()}
         for name in region_names:
             region = regions_by_name[name]
             image = capture_region(region)
             price = parse_price(image)
+            label = f"{label_prefix}_{name}" if label_prefix else name
             if price is None:
-                save_snapshot(region.name, image)
-            append_price(region.name, price)
+                save_snapshot(label, image)
+            append_price(label, price)
 
     def close(self) -> None:
         # Note: if the launcher spawns the actual game as a separate,
