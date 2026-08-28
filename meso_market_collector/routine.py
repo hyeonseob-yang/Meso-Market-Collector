@@ -21,6 +21,8 @@ class Step:
     label_prefix: str | None = None
     key: str | None = None
     keys: list[str] | None = None
+    window_title: str | None = None
+    task_name: str | None = None
 
 
 def load_steps(path: Path) -> list[Step]:
@@ -41,6 +43,8 @@ class GameActions(Protocol):
     def record_prices(self, region_names: list[str], label_prefix: str | None = None) -> None: ...
     def press_key(self, key: str) -> None: ...
     def hotkey(self, keys: list[str]) -> None: ...
+    def focus_window(self, window_title: str) -> None: ...
+    def run_task(self, task_name: str) -> None: ...
 
 
 def run_routine(steps: list[Step], task_name: str, actions: GameActions) -> None:
@@ -61,5 +65,9 @@ def run_routine(steps: list[Step], task_name: str, actions: GameActions) -> None
             actions.press_key(step.key)
         elif step.action == "hotkey":
             actions.hotkey(step.keys)
+        elif step.action == "focus_window":
+            actions.focus_window(step.window_title)
+        elif step.action == "run_task":
+            actions.run_task(step.task_name)
         else:
             raise ValueError(f"Unknown action: {step.action!r}")

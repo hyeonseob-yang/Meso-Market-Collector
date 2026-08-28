@@ -16,6 +16,7 @@ from .storage import append_price, save_snapshot
 
 try:
     import pyautogui
+    import pygetwindow as gw
 except Exception as exc:  # pragma: no cover - environment dependent
     raise RuntimeError(
         "pyautogui could not find a display. Run this from a session that "
@@ -46,6 +47,9 @@ class ScreenActions:
             str(self.templates_dir / template), confidence=self.confidence
         )
 
+    def _run_scheduled_task(self, task_name: str) -> None:
+        subprocess.run(["schtasks", "/run", "/tn", task_name], check=True)
+
     def launch(self, task_name: str) -> None:
         # Runs a pre-configured Scheduled Task (RunLevel: Highest) rather
         # than the exe directly. This avoids two problems found in practice:
@@ -58,7 +62,19 @@ class ScreenActions:
         # official launcher with its own "jump straight to this game"
         # argument (e.g. nxl://launch/10100), matching a normal desktop
         # shortcut's behavior, which anti-cheat doesn't flag.
-        subprocess.run(["schtasks", "/run", "/tn", task_name], check=True)
+        self._run_scheduled_task(task_name)
+
+    def run_task(self, task_name: str) -> None:
+        # Generic version of the same mechanism as launch() - runs any
+        # other pre-configured Scheduled Task. Used to close the game: the
+        # process runs elevated (from launch's task), so a normal-integrity
+        # taskkill/Stop-Process can't touch it (Access is denied), and
+        # simulated input (Alt+F4, clicking an exit-confirm dialog) doesn't
+        # register in the game client at all - same as every other in-game
+        # click, this input filtering doesn't distinguish "close the game"
+        # from any other click. A second elevated task (e.g. running
+        # `taskkill /F /IM MapleStory.exe`) sidesteps both problems at once.
+        self._run_scheduled_task(task_name)
 
     def wait_for_image(self, template: str):
         deadline = time.monotonic() + self.timeout
@@ -113,3 +129,16 @@ class ScreenActions:
 
     def hotkey(self, keys: list[str]) -> None:
         pyautogui.hotkey(*keys)
+
+    def focus_window(self, window_title: str) -> None:
+        # A click's first hit on an unfocused window can just activate it
+        # rather than actually registering on whatever's underneath the
+        # cursor - bring it to the foreground explicitly first so every
+        # click_image afterward lands for real.
+        windows = gw.getWindowsWithTitle(window_title)
+        if not windows:
+            raise RuntimeError(f"No window found with title containing {window_title!r}")
+        window = windows[0]
+        if window.isMinimized:
+            window.restore()
+        window.activate()

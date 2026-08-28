@@ -35,6 +35,12 @@ class FakeActions:
     def hotkey(self, keys):
         self.calls.append(("hotkey", tuple(keys)))
 
+    def focus_window(self, window_title):
+        self.calls.append(("focus_window", window_title))
+
+    def run_task(self, task_name):
+        self.calls.append(("run_task", task_name))
+
 
 def test_load_steps_parses_json(tmp_path):
     routine_file = tmp_path / "routine.json"
@@ -42,10 +48,12 @@ def test_load_steps_parses_json(tmp_path):
         json.dumps(
             [
                 {"action": "launch"},
+                {"action": "focus_window", "window_title": "MapleStory"},
                 {"action": "click_image", "template": "login_button.png"},
                 {"action": "record_prices", "regions": ["meso_1", "meso_2"], "label_prefix": "sell"},
                 {"action": "press_key", "key": "esc"},
                 {"action": "hotkey", "keys": ["alt", "f4"]},
+                {"action": "run_task", "task_name": "MesoMarketCollector_KillMapleStory"},
             ]
         )
     )
@@ -54,10 +62,12 @@ def test_load_steps_parses_json(tmp_path):
 
     assert steps == [
         Step(action="launch"),
+        Step(action="focus_window", window_title="MapleStory"),
         Step(action="click_image", template="login_button.png"),
         Step(action="record_prices", regions=["meso_1", "meso_2"], label_prefix="sell"),
         Step(action="press_key", key="esc"),
         Step(action="hotkey", keys=["alt", "f4"]),
+        Step(action="run_task", task_name="MesoMarketCollector_KillMapleStory"),
     ]
 
 
@@ -67,6 +77,7 @@ def test_run_routine_dispatches_each_step_in_order():
     # Windows Run prompt to handle here anymore.
     steps = [
         Step(action="launch"),
+        Step(action="focus_window", window_title="MapleStory"),
         Step(action="wait_for_image", template="login_button.png"),
         Step(action="wait_for_stable_image", template="login_button.png"),
         Step(action="click_image", template="login_button.png"),
@@ -83,8 +94,7 @@ def test_run_routine_dispatches_each_step_in_order():
             regions=["meso_1", "meso_2", "meso_3", "meso_4"],
             label_prefix="buy",
         ),
-        Step(action="hotkey", keys=["alt", "f4"]),
-        Step(action="click_image", template="yes_button.png"),
+        Step(action="run_task", task_name="MesoMarketCollector_KillMapleStory"),
     ]
     actions = FakeActions()
 
@@ -92,6 +102,7 @@ def test_run_routine_dispatches_each_step_in_order():
 
     assert actions.calls == [
         ("launch", "MesoMarketCollector_MapleStoryViaLauncher"),
+        ("focus_window", "MapleStory"),
         ("wait_for_image", "login_button.png"),
         ("wait_for_stable_image", "login_button.png"),
         ("click_image", "login_button.png"),
@@ -100,8 +111,7 @@ def test_run_routine_dispatches_each_step_in_order():
         ("record_prices", ("meso_1", "meso_2", "meso_3", "meso_4"), "sell"),
         ("click_image", "buy_mesos_tab.png"),
         ("record_prices", ("meso_1", "meso_2", "meso_3", "meso_4"), "buy"),
-        ("hotkey", ("alt", "f4")),
-        ("click_image", "yes_button.png"),
+        ("run_task", "MesoMarketCollector_KillMapleStory"),
     ]
 
 
@@ -119,6 +129,22 @@ def test_run_routine_dispatches_hotkey():
     run_routine([Step(action="hotkey", keys=["alt", "f4"])], task_name="x", actions=actions)
 
     assert actions.calls == [("hotkey", ("alt", "f4"))]
+
+
+def test_run_routine_dispatches_focus_window():
+    actions = FakeActions()
+
+    run_routine([Step(action="focus_window", window_title="MapleStory")], task_name="x", actions=actions)
+
+    assert actions.calls == [("focus_window", "MapleStory")]
+
+
+def test_run_routine_dispatches_run_task():
+    actions = FakeActions()
+
+    run_routine([Step(action="run_task", task_name="SomeOtherTask")], task_name="x", actions=actions)
+
+    assert actions.calls == [("run_task", "SomeOtherTask")]
 
 
 def test_run_routine_rejects_unknown_action():

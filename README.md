@@ -76,18 +76,35 @@ actually running the game automation.
    normal (non-admin) shell — it should go straight to the game's login
    screen with no prompt.
 
-3. **Template images.** The routine finds buttons (Log In, Quick Move,
+3. **Close task.** Closing the game hits a related problem — see "Why a
+   Scheduled Task" below — so it's also done via a second task, this one
+   just running `taskkill`. One-time setup, from an **Administrator**
+   PowerShell:
+   ```powershell
+   $action = New-ScheduledTaskAction -Execute "taskkill.exe" -Argument "/F /IM MapleStory.exe"
+   $principal = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$env:USERNAME" -LogonType Interactive -RunLevel Highest
+   $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date)
+   Register-ScheduledTask -TaskName "MesoMarketCollector_KillMapleStory" -Action $action -Principal $principal -Trigger $trigger -Force
+   ```
+   (Adjust `/IM MapleStory.exe` if your game's actual process name differs
+   — check with `Get-Process` while it's running.) Verify with
+   `schtasks /run /tn "MesoMarketCollector_KillMapleStory"` from a normal
+   (non-admin) shell while the game is open — it should close immediately,
+   no prompt.
+
+4. **Template images.** The routine finds buttons (Log In, Quick Move,
    etc.) by matching small reference screenshots. See
    [`assets/templates/README.md`](assets/templates/README.md) for exactly
    which crops to capture and their required filenames.
 
-4. **Routine steps.** [`config/routine.json`](config/routine.json) holds
+5. **Routine steps.** [`config/routine.json`](config/routine.json) holds
    the ordered launch → login → navigate → record → close sequence. Edit it
    if the actual click order differs.
 
-### Why a Scheduled Task, not a direct launch?
+### Why a Scheduled Task, not a direct launch/close?
 
-Two things ruled out the simpler options:
+Several things ruled out the simpler options, for both launching and
+closing:
 - Launching the game's exe directly (even elevated, even with the
   `__COMPAT_LAYER=RunAsInvoker` environment variable set) still triggered a
   UAC prompt with no way found to suppress it — the launcher requests
@@ -96,14 +113,39 @@ Two things ruled out the simpler options:
   launcher's own start flow) got **flagged by anti-cheat as a "hacking
   program."** Don't try this — it risks your account, not just a broken
   script.
+- Once actually logged in, **simulated mouse clicks and keyboard shortcuts
+  (Alt+F4) don't register in the game client at all** — found while trying
+  to click Log In/Quick Move/Meso Market and to close via Alt+F4. Confirmed
+  it wasn't a focus or coordinate problem (explicit window activation,
+  verified-correct click coordinates, `pydirectinput` as an alternative
+  input method, windowed vs. fullscreen mode — none of it changed the
+  result). This is consistent with anti-cheat filtering synthetic input,
+  and isn't something to try to work around — see the retrospective in
+  this project's conversation history if you're curious, but the short
+  version is: don't attempt lower-level input injection to defeat this:
+  that's the same mechanism real game bots need, regardless of intent.
+  Directly killing the elevated game process also fails the same way
+  `Stop-Process` fails on any elevated process from a non-elevated caller
+  (`Access is denied`) — nothing anti-cheat-specific there, just normal
+  Windows privilege separation.
 
-A Scheduled Task configured with `RunLevel: Highest`, pointed at the
-**launcher** exe with the same "jump straight to this game" argument a
-desktop shortcut uses (e.g. `nxl://launch/10100` for MapleStory) sidesteps
-both problems: it's pre-elevated (no prompt) and goes through the official
-launch path (no anti-cheat flag) — functionally identical to right-clicking
-the desktop shortcut and choosing "Run as administrator," just without the
-interactive prompt.
+A Scheduled Task configured with `RunLevel: Highest` sidesteps all of
+this by never asking the game to accept simulated input as if it were
+real: the **launch** task points at the launcher exe with the same "jump
+straight to this game" argument a desktop shortcut uses (e.g.
+`nxl://launch/10100` for MapleStory) — functionally identical to
+right-clicking the desktop shortcut and choosing "Run as administrator,"
+just without the interactive prompt. The **close** task just runs
+`taskkill` directly against the process, which is normal OS process
+management, not simulated input the game has to interpret at all.
+
+**What's still automatable vs. not:** launching, reaching the login/menu
+screens, and closing are all automatable (they don't require the game to
+accept synthetic input as genuine). Logging in and navigating the actual
+game world (Quick Move, Meso Market, tab switching) apparently requires
+real input and currently needs a human — the routine below still lists
+those steps as a record of the intended flow, but expect them to need you
+at the keyboard/mouse for that portion until/unless that changes.
 
 ## Run the full session (launch game, log in, record both tabs, close)
 
