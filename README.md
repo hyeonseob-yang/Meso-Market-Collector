@@ -57,12 +57,37 @@ actually running the game automation.
    [`config/routine.json`](config/routine.json), so the two tabs still end
    up as distinct rows in the CSV.
 
-2. **Template images.** The routine finds buttons (Play, Log In, Quick
+2. **Portability across resolutions.** `find_coords.py` also prints the
+   current screen resolution — record it as `reference_resolution` in
+   `config/regions.json`:
+   ```json
+   {
+     "reference_resolution": { "width": 2560, "height": 1440 },
+     "meso": { "left": 1090, "width": 130, "height": 45, "tops": [300, 395, 470, 545] }
+   }
+   ```
+   With that present, `screen_actions.py` proportionally scales every region
+   to whatever resolution is actually running (via `config.scale_regions`)
+   instead of using the literal calibrated pixels. **Caveat:** this assumes
+   MapleStory's UI positions scale linearly with resolution; if it instead
+   anchors elements a fixed pixel offset from an edge, proportional scaling
+   will compute the wrong position at a different resolution. Verify by
+   calibrating (or at least spot-checking one box) at a second resolution
+   before relying on this for a resolution other than the one you
+   calibrated at. Omit `reference_resolution` entirely to skip scaling and
+   use the literal pixel values as before.
+
+3. **Template images.** The routine finds buttons (Play, Log In, Quick
    Move, etc.) by matching small reference screenshots. See
    [`assets/templates/README.md`](assets/templates/README.md) for exactly
-   which crops to capture and their required filenames.
+   which crops to capture and their required filenames. Note: unlike the
+   region boxes above, templates are **not** scaled for a different
+   resolution — a button screenshot captured at one resolution generally
+   won't pixel-match the same button rendered at another size. Someone
+   running at a different resolution than `reference_resolution` would
+   still need to recapture these.
 
-3. **Routine steps.** [`config/routine.json`](config/routine.json) holds
+4. **Routine steps.** [`config/routine.json`](config/routine.json) holds
    the ordered launch → login → navigate → record → close sequence. Edit it
    if the actual click order differs.
 

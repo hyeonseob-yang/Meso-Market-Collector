@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 
 from .capture import capture_region
-from .config import load_regions
+from .config import Resolution, load_reference_resolution, load_regions, scale_regions
 from .parser import parse_price
 from .storage import append_price, save_snapshot
 
@@ -88,7 +88,12 @@ class ScreenActions:
     def record_prices(self, region_names: list[str], label_prefix: str | None = None) -> None:
         # region boxes are shared between tabs (same on-screen position); the
         # prefix (e.g. "sell"/"buy") is what keeps the recorded rows apart.
-        regions_by_name = {r.name: r for r in load_regions()}
+        regions = load_regions()
+        reference = load_reference_resolution()
+        if reference is not None:
+            current = Resolution(*pyautogui.size())
+            regions = scale_regions(regions, reference=reference, current=current)
+        regions_by_name = {r.name: r for r in regions}
         for name in region_names:
             region = regions_by_name[name]
             image = capture_region(region)

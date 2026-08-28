@@ -4,6 +4,12 @@ Move the mouse to a corner of the price display in the game and read off
 the (x, y) printed here. Run twice per region (top-left, then bottom-right)
 to work out left/top/width/height for config/regions.json.
 
+Also prints the current screen resolution - record it as
+"reference_resolution" in regions.json alongside the coordinates you find,
+so anyone running this at a different resolution gets it scaled instead of
+needing to recalibrate (see config.scale_regions - proportional scaling,
+not guaranteed correct for every game's UI, see its docstring).
+
 Usage: python -m tools.find_coords
 """
 import time
@@ -11,6 +17,9 @@ import time
 import pyautogui
 
 if __name__ == "__main__":
+    width, height = pyautogui.size()
+    print(f"Current screen resolution: {width}x{height}")
+    print('Record this as "reference_resolution" in config/regions.json.')
     print("Move the mouse over the point you want the coordinates of.")
     print("Press Ctrl+C to stop.")
     try:
