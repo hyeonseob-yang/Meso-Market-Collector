@@ -15,6 +15,7 @@ the exact filename `config/routine.json` references:
 | `quick_move_button.png` | The "Quick Move" button |
 | `meso_market_icon.png` | The "Meso Market" menu icon |
 | `buy_mesos_tab.png` | The "Buy Mesos" tab |
+| `yes_button.png` | The "Yes" confirmation button on the exit-game dialog (after Alt+F4) |
 
 Tips:
 - Crop tight and avoid text that could change (timestamps, counters).

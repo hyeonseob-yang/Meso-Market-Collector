@@ -11,5 +11,6 @@
   {"action": "record_prices", "regions": ["meso_1", "meso_2", "meso_3", "meso_4"], "label_prefix": "sell"},
   {"action": "click_image", "template": "buy_mesos_tab.png"},
   {"action": "record_prices", "regions": ["meso_1", "meso_2", "meso_3", "meso_4"], "label_prefix": "buy"},
-  {"action": "close"}
+  {"action": "hotkey", "keys": ["alt", "f4"]},
+  {"action": "click_image", "template": "yes_button.png"}
 ]
