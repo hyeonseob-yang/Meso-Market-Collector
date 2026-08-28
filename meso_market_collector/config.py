@@ -31,6 +31,27 @@ class Region:
 
 
 def load_regions(path: Path = REGIONS_FILE) -> list[Region]:
+    """Load named regions, or "column" shorthand entries.
+
+    A plain entry is one box: {"left", "top", "width", "height"}.
+
+    A column entry shares left/width/height across several rows that only
+    differ in vertical position - {"left", "width", "height", "tops": [...]}
+    - and expands into one Region per row, named "<key>_1", "<key>_2", ...
+    Use this when boxes are stacked in a column (e.g. Sell/Buy Meso price
+    rows); fall back to plain boxes for anything that isn't.
+    """
     with open(path, "r", encoding="utf-8") as f:
         raw = json.load(f)
-    return [Region(name=name, **box) for name, box in raw.items()]
+
+    regions: list[Region] = []
+    for name, box in raw.items():
+        if "tops" in box:
+            tops = box["tops"]
+            for i, top in enumerate(tops, start=1):
+                regions.append(
+                    Region(name=f"{name}_{i}", left=box["left"], top=top, width=box["width"], height=box["height"])
+                )
+        else:
+            regions.append(Region(name=name, **box))
+    return regions

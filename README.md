@@ -34,14 +34,25 @@ actually running the game automation.
 
 1. **Region boxes.** The 4 Sell-tab and 4 Buy-tab price boxes sit at the
    same on-screen position — only the tab changes — so `config/regions.json`
-   defines just one shared set, `meso_1..4`. With the game window in place,
-   find the pixel coordinates of each box:
+   defines just one shared set, `meso_1..4`. They're also stacked in a
+   column with identical `left`/`width`/`height`, only `top` differing per
+   row, so they're defined with the "column" shorthand:
+   ```json
+   {
+     "meso": { "left": 412, "width": 90, "height": 22, "tops": [588, 620, 652, 684] }
+   }
+   ```
+   which expands into 4 named regions (`meso_1`..`meso_4`) at load time —
+   see [`config.py`](meso_market_collector/config.py). A plain box
+   (`{"left", "top", "width", "height"}`, no `tops`) still works too, for
+   anything that isn't a column-shaped layout.
+
+   With the game window in place, find the pixel coordinates:
    ```bash
    python -m tools.find_coords
    ```
-   Edit [`config/regions.json`](config/regions.json) (placeholders assume 4
-   boxes; add/remove entries if the real layout differs). The routine
-   captures this same set twice — once per tab — and labels each recording
+   Edit [`config/regions.json`](config/regions.json). The routine captures
+   this same set twice — once per tab — and labels each recording
    `sell_meso_*`/`buy_meso_*` via `label_prefix` in
    [`config/routine.json`](config/routine.json), so the two tabs still end
    up as distinct rows in the CSV.
