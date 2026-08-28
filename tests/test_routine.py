@@ -32,6 +32,9 @@ class FakeActions:
     def close(self):
         self.calls.append(("close",))
 
+    def press_key(self, key):
+        self.calls.append(("press_key", key))
+
 
 def test_load_steps_parses_json(tmp_path):
     routine_file = tmp_path / "routine.json"
@@ -41,6 +44,7 @@ def test_load_steps_parses_json(tmp_path):
                 {"action": "launch"},
                 {"action": "click_image", "template": "login_button.png"},
                 {"action": "record_prices", "regions": ["meso_1", "meso_2"], "label_prefix": "sell"},
+                {"action": "press_key", "key": "esc"},
                 {"action": "close"},
             ]
         )
@@ -52,6 +56,7 @@ def test_load_steps_parses_json(tmp_path):
         Step(action="launch"),
         Step(action="click_image", template="login_button.png"),
         Step(action="record_prices", regions=["meso_1", "meso_2"], label_prefix="sell"),
+        Step(action="press_key", key="esc"),
         Step(action="close"),
     ]
 
@@ -95,6 +100,14 @@ def test_run_routine_dispatches_each_step_in_order():
         ("record_prices", ("meso_1", "meso_2", "meso_3", "meso_4"), "buy"),
         ("close",),
     ]
+
+
+def test_run_routine_dispatches_press_key():
+    actions = FakeActions()
+
+    run_routine([Step(action="press_key", key="esc")], launcher_path="x", actions=actions)
+
+    assert actions.calls == [("press_key", "esc")]
 
 
 def test_run_routine_rejects_unknown_action():

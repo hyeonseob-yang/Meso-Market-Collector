@@ -98,6 +98,9 @@ class ScreenActions:
                 save_snapshot(label, image)
             append_price(label, price)
 
+    def press_key(self, key: str) -> None:
+        pyautogui.press(key)
+
     def close(self) -> None:
         # Note: if the launcher spawns the actual game as a separate,
         # detached process and exits on its own, this only terminates the

@@ -19,6 +19,7 @@ class Step:
     template: str | None = None
     regions: list[str] | None = None
     label_prefix: str | None = None
+    key: str | None = None
 
 
 def load_steps(path: Path) -> list[Step]:
@@ -38,6 +39,7 @@ class GameActions(Protocol):
     def click_image(self, template: str) -> None: ...
     def record_prices(self, region_names: list[str], label_prefix: str | None = None) -> None: ...
     def close(self) -> None: ...
+    def press_key(self, key: str) -> None: ...
 
 
 def run_routine(steps: list[Step], launcher_path: str, actions: GameActions) -> None:
@@ -56,5 +58,7 @@ def run_routine(steps: list[Step], launcher_path: str, actions: GameActions) -> 
             actions.record_prices(step.regions, step.label_prefix)
         elif step.action == "close":
             actions.close()
+        elif step.action == "press_key":
+            actions.press_key(step.key)
         else:
             raise ValueError(f"Unknown action: {step.action!r}")
