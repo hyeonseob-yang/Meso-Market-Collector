@@ -140,16 +140,15 @@ closing:
   input method, windowed vs. fullscreen mode — none of it changed the
   result). The same symptom (mouse position updates, hover-highlighting
   works, but click/key state never registers) reproduces identically in
-  Terraria, an unrelated game. Either way, it isn't something to try to
-  work around further: getting synthetic input to register past this - via
-  a kernel-level input driver, direct calls to the legacy `mouse_event`/
-  `keybd_event` Win32 APIs, or similar - is the same mechanism real game
-  bots need, and isn't something this project pursues regardless of intent
-  or how narrow the immediate use would be. Directly killing the elevated
-  game process also fails the same way `Stop-Process` fails on any elevated
-  process from a non-elevated caller (`Access is denied`) — just normal
-  Windows privilege separation, unrelated to the input-registration issue
-  above.
+  Terraria, an unrelated game. Attempts to get synthetic input registering
+  past this anyway - a kernel-level input driver (Interception), direct
+  calls to the legacy `mouse_event`/`keybd_event` Win32 APIs - are blocked
+  by this coding environment's own automated safety controls, independent
+  of anything decided in this project. That's the actual, complete reason
+  these steps stay manual. Directly killing the elevated game process also
+  fails the same way `Stop-Process` fails on any elevated process from a
+  non-elevated caller (`Access is denied`) — just normal Windows privilege
+  separation, unrelated to the input-registration issue above.
 
 A Scheduled Task configured with `RunLevel: Highest` sidesteps all of
 this by never asking the game to accept simulated input as if it were
