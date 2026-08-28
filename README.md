@@ -92,7 +92,25 @@ actually running the game automation.
    (non-admin) shell while the game is open — it should close immediately,
    no prompt.
 
-4. **Template image.** Only `login_button.png` is still used — to confirm
+4. **Close-launcher task.** The launcher (e.g. `nexon_client.exe`) also
+   needs closing, and — surprisingly — it needs the same elevated-task
+   treatment even though the launcher itself never shows a UAC prompt: its
+   process is a multi-process Electron-style app, and only *some* of its
+   processes run at normal integrity — a plain `taskkill`/`Stop-Process`
+   silently leaves the elevated ones running ("Access is denied" per
+   process, easy to miss if you don't check each one). Same one-time
+   setup as above:
+   ```powershell
+   $action = New-ScheduledTaskAction -Execute "taskkill.exe" -Argument "/F /IM nexon_client.exe"
+   $principal = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$env:USERNAME" -LogonType Interactive -RunLevel Highest
+   $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date)
+   Register-ScheduledTask -TaskName "MesoMarketCollector_KillNexonLauncher" -Action $action -Principal $principal -Trigger $trigger -Force
+   ```
+   Verify with `Get-Process -Name nexon_client` before and after running
+   `schtasks /run /tn "MesoMarketCollector_KillNexonLauncher"` — the count
+   should drop to zero, not just decrease.
+
+5. **Template image.** Only `login_button.png` is still used — to confirm
    the login screen has actually loaded before handing off to you (see
    [`assets/templates/README.md`](assets/templates/README.md)). The others
    (Quick Move, Meso Market, Buy tab, exit-confirm) were used to click
@@ -100,10 +118,11 @@ actually running the game automation.
    they're no longer referenced by the routine, though the files are still
    there in case that changes.
 
-5. **Routine steps.** [`config/routine.json`](config/routine.json) holds
+6. **Routine steps.** [`config/routine.json`](config/routine.json) holds
    the ordered launch → login → navigate → record → close sequence,
-   including `wait_for_user` checkpoints where a real click is needed (see
-   "What's still automatable" below). Edit it if the actual flow differs.
+   including `wait_for_image` polling checkpoints where a real click is
+   needed (see "What's still automatable" below). Edit it if the actual
+   flow differs.
 
 ### Why a Scheduled Task, not a direct launch/close?
 
@@ -144,9 +163,20 @@ real: the **launch** task points at the launcher exe with the same "jump
 straight to this game" argument a desktop shortcut uses (e.g.
 `nxl://launch/10100` for MapleStory) — functionally identical to
 right-clicking the desktop shortcut and choosing "Run as administrator,"
-just without the interactive prompt. The **close** task just runs
-`taskkill` directly against the process, which is normal OS process
-management, not simulated input the game has to interpret at all.
+just without the interactive prompt. The **close** tasks just run
+`taskkill` directly against a process, which is normal OS process
+management, not simulated input anything has to interpret at all.
+
+There are two close tasks, not one — closing the *launcher* needed the
+same treatment as the game, which was initially surprising since the
+launcher's own UI (e.g. its Play button) does respond fine to simulated
+clicks, unlike the game. The reason: the launcher is a multi-process
+Electron-style app, and while its main window accepts clicks normally,
+some of its background/helper processes run elevated (inherited from
+being started by our elevated launch task) while others don't — a plain
+`taskkill`/`Stop-Process` only ever gets the non-elevated ones, silently
+leaving the rest running. So both "close" steps are process-kill tasks,
+even though only one of the two targets is actually input-resistant.
 
 **What's still automatable vs. not:** launching, reaching the login screen,
 capturing price regions (pure screenshot reads, no input needed), and
@@ -160,7 +190,7 @@ template images this needs). So a run looks like: script launches the
 game, waits for the login screen, prints "log in and navigate to the Sell
 tab" → **you** do that → script notices and captures Sell prices, prints
 "click the Buy tab" → **you** do that → script notices, captures Buy
-prices, and closes the game.
+prices, closes the game, and closes the launcher.
 
 ## Run the full session (launch game, log in, record both tabs, close)
 

@@ -103,6 +103,7 @@ def test_run_routine_dispatches_each_step_in_order():
             label_prefix="buy",
         ),
         Step(action="run_task", task_name="MesoMarketCollector_KillMapleStory"),
+        Step(action="run_task", task_name="MesoMarketCollector_KillNexonLauncher"),
     ]
     actions = FakeActions()
 
@@ -117,6 +118,7 @@ def test_run_routine_dispatches_each_step_in_order():
         ("wait_for_image", "buy_mesos_active.png", "Click the Buy Mesos tab"),
         ("record_prices", ("meso_1", "meso_2", "meso_3", "meso_4"), "buy"),
         ("run_task", "MesoMarketCollector_KillMapleStory"),
+        ("run_task", "MesoMarketCollector_KillNexonLauncher"),
     ]
 
 
