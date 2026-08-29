@@ -34,15 +34,20 @@ actually running the game automation.
 
 1. **Region boxes.** The 4 Sell-tab and 4 Buy-tab price boxes sit at the
    same on-screen position — only the tab changes — so `config/regions.json`
-   defines just one shared set, `meso_1..4`. They're also stacked in a
-   column with identical `left`/`width`/`height`, only `top` differing per
-   row, so they're defined with the "column" shorthand:
+   defines just one shared set. They're also stacked in a column with
+   identical `left`/`width`/`height`, only `top` differing per row, so
+   they're defined with the "column" shorthand, with an explicit `names`
+   list (rather than the shorthand's default `meso_1`, `meso_2`, ... —
+   the actual tier each box shows is more meaningful than its position):
    ```json
    {
-     "meso": { "left": 412, "width": 90, "height": 22, "tops": [588, 620, 652, 684] }
+     "meso": {
+       "left": 412, "width": 90, "height": 22,
+       "tops": [588, 620, 652, 684],
+       "names": ["meso_average", "meso_100m", "meso_1b", "meso_10b"]
+     }
    }
    ```
-   which expands into 4 named regions (`meso_1`..`meso_4`) at load time —
    see [`config.py`](meso_market_collector/config.py). A plain box
    (`{"left", "top", "width", "height"}`, no `tops`) still works too, for
    anything that isn't a column-shaped layout.
@@ -51,12 +56,12 @@ actually running the game automation.
    ```bash
    python -m tools.find_coords
    ```
-   Edit [`config/regions.json`](config/regions.json). `meso_1` reads
+   Edit [`config/regions.json`](config/regions.json). `meso_average` reads
    identically regardless of which tab is showing (confirmed, not just
    assumed), so it's only captured once, on the Sell pass. Each
    `record_prices` step in [`config/routine.json`](config/routine.json)
    maps region names directly to their final CSV column name — e.g.
-   `{"meso_2": "Sell Buyout 100M"}` — so what you see in
+   `{"meso_100m": "Sell Buyout 100M"}` — so what you see in
    `data/price_history.csv` matches what's in `config/routine.json`
    directly, with no separate relabeling step in between.
 
@@ -208,7 +213,7 @@ to `data/price_history.csv` as **one row per run**, matching the columns of
 `Date, Average, Buy Buyout 100M, Buy Buyout 1B, Buy Buyout 10B,
 Sell Buyout 100M, Sell Buyout 1B, Sell Buyout 10B, Notes` (`Notes` is
 always left blank for you to fill in by hand). `Average` comes from the
-`meso_1` box, which reads identically regardless of which tab is
+`meso_average` box, which reads identically regardless of which tab is
 showing — confirmed empirically, not just assumed — so it's captured once
 per row rather than separately for each tab. If OCR can't cleanly read a
 box (blank, or anything that isn't purely digits), that cell is left blank

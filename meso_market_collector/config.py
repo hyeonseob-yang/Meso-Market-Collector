@@ -39,8 +39,10 @@ def load_regions(path: Path = REGIONS_FILE) -> list[Region]:
     A column entry shares left/width/height across several rows that only
     differ in vertical position - {"left", "width", "height", "tops": [...]}
     - and expands into one Region per row, named "<key>_1", "<key>_2", ...
-    Use this when boxes are stacked in a column (e.g. Sell/Buy Meso price
-    rows); fall back to plain boxes for anything that isn't.
+    by default, or using an optional "names" list instead (paired
+    positionally with "tops") when the index position on its own isn't
+    meaningful. Use this when boxes are stacked in a column (e.g. Sell/Buy
+    Meso price rows); fall back to plain boxes for anything that isn't.
     """
     with open(path, "r", encoding="utf-8") as f:
         raw = json.load(f)
@@ -49,9 +51,10 @@ def load_regions(path: Path = REGIONS_FILE) -> list[Region]:
     for name, box in raw.items():
         if "tops" in box:
             tops = box["tops"]
-            for i, top in enumerate(tops, start=1):
+            names = box.get("names", [f"{name}_{i}" for i in range(1, len(tops) + 1)])
+            for row_name, top in zip(names, tops):
                 regions.append(
-                    Region(name=f"{name}_{i}", left=box["left"], top=top, width=box["width"], height=box["height"])
+                    Region(name=row_name, left=box["left"], top=top, width=box["width"], height=box["height"])
                 )
         else:
             regions.append(Region(name=name, **box))

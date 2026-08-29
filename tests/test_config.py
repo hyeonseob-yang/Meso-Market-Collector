@@ -46,6 +46,34 @@ def test_load_regions_expands_column_shorthand(tmp_path):
     ]
 
 
+def test_load_regions_column_shorthand_accepts_explicit_names(tmp_path):
+    """An optional `names` list overrides the default `<key>_<i>` naming,
+    for when the index position isn't meaningful on its own."""
+    regions_file = tmp_path / "regions.json"
+    regions_file.write_text(
+        json.dumps(
+            {
+                "meso": {
+                    "left": 10,
+                    "width": 150,
+                    "height": 30,
+                    "tops": [100, 140, 180, 220],
+                    "names": ["meso_average", "meso_100m", "meso_1b", "meso_10b"],
+                },
+            }
+        )
+    )
+
+    regions = load_regions(regions_file)
+
+    assert regions == [
+        Region(name="meso_average", left=10, top=100, width=150, height=30),
+        Region(name="meso_100m", left=10, top=140, width=150, height=30),
+        Region(name="meso_1b", left=10, top=180, width=150, height=30),
+        Region(name="meso_10b", left=10, top=220, width=150, height=30),
+    ]
+
+
 def test_load_regions_mixes_boxes_and_columns(tmp_path):
     regions_file = tmp_path / "regions.json"
     regions_file.write_text(

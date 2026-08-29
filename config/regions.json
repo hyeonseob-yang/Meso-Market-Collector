@@ -3,6 +3,7 @@
     "left": 1090,
     "width": 130,
     "height": 45,
-    "tops": [300, 395, 470, 545]
+    "tops": [300, 395, 470, 545],
+    "names": ["meso_average", "meso_100m", "meso_1b", "meso_10b"]
   }
 }

@@ -3,9 +3,9 @@
   {"action": "wait_for_image", "template": "login_button.png"},
   {"action": "focus_window", "window_title": "MapleStory"},
   {"action": "wait_for_image", "template": "sell_mesos_active.png", "message": "Log in, click Quick Move, click Meso Market, and make sure the Sell Mesos tab is showing."},
-  {"action": "record_prices", "regions": {"meso_1": "Average", "meso_2": "Sell Buyout 100M", "meso_3": "Sell Buyout 1B", "meso_4": "Sell Buyout 10B"}},
+  {"action": "record_prices", "regions": {"meso_average": "Average", "meso_100m": "Sell Buyout 100M", "meso_1b": "Sell Buyout 1B", "meso_10b": "Sell Buyout 10B"}},
   {"action": "wait_for_image", "template": "buy_mesos_active.png", "message": "Click the Buy Mesos tab."},
-  {"action": "record_prices", "regions": {"meso_2": "Buy Buyout 100M", "meso_3": "Buy Buyout 1B", "meso_4": "Buy Buyout 10B"}},
+  {"action": "record_prices", "regions": {"meso_100m": "Buy Buyout 100M", "meso_1b": "Buy Buyout 1B", "meso_10b": "Buy Buyout 10B"}},
   {"action": "save_price_row"},
   {"action": "run_task", "task_name": "MesoMarketCollector_KillMapleStory"},
   {"action": "run_task", "task_name": "MesoMarketCollector_KillNexonLauncher"}
