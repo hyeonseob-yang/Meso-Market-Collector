@@ -19,38 +19,38 @@ def test_append_region_reading_writes_header_and_row(tmp_path):
 
 def test_price_row_from_readings_maps_columns():
     readings = {
-        "sell_meso_1": 377.0,
-        "sell_meso_2": 375.0,
-        "sell_meso_3": 375.0,
-        "sell_meso_4": 375.0,
-        "buy_meso_1": 377.0,
-        "buy_meso_2": 382.0,
-        "buy_meso_3": 382.0,
-        "buy_meso_4": 382.0,
+        "sell_meso_1": 377,
+        "sell_meso_2": 375,
+        "sell_meso_3": 375,
+        "sell_meso_4": 375,
+        "buy_meso_1": 377,
+        "buy_meso_2": 382,
+        "buy_meso_3": 382,
+        "buy_meso_4": 382,
     }
 
     row = price_row_from_readings(readings)
 
     assert row == {
-        "Average": 377.0,
-        "Buy Buyout 100M": 382.0,
-        "Buy Buyout 1B": 382.0,
-        "Buy Buyout 10B": 382.0,
-        "Sell Buyout 100M": 375.0,
-        "Sell Buyout 1B": 375.0,
-        "Sell Buyout 10B": 375.0,
+        "Average": 377,
+        "Buy Buyout 100M": 382,
+        "Buy Buyout 1B": 382,
+        "Buy Buyout 10B": 382,
+        "Sell Buyout 100M": 375,
+        "Sell Buyout 1B": 375,
+        "Sell Buyout 10B": 375,
     }
 
 
 def test_price_row_from_readings_falls_back_to_buy_average_if_sell_missing():
     readings = {
         "sell_meso_1": None,
-        "buy_meso_1": 377.0,
+        "buy_meso_1": 377,
     }
 
     row = price_row_from_readings(readings)
 
-    assert row["Average"] == 377.0
+    assert row["Average"] == 377
 
 
 def test_price_row_from_readings_handles_missing_keys():
@@ -70,13 +70,13 @@ def test_price_row_from_readings_handles_missing_keys():
 def test_append_price_row_writes_template_format_header_and_row(tmp_path):
     csv_path = tmp_path / "price_history.csv"
     row = {
-        "Average": 377.0,
-        "Buy Buyout 100M": 382.0,
-        "Buy Buyout 1B": 382.0,
-        "Buy Buyout 10B": 382.0,
-        "Sell Buyout 100M": 375.0,
-        "Sell Buyout 1B": 375.0,
-        "Sell Buyout 10B": 375.0,
+        "Average": 377,
+        "Buy Buyout 100M": 382,
+        "Buy Buyout 1B": 382,
+        "Buy Buyout 10B": 382,
+        "Sell Buyout 100M": 375,
+        "Sell Buyout 1B": 375,
+        "Sell Buyout 10B": 375,
     }
 
     append_price_row(row, csv_path=csv_path, timestamp="2/9/2026 17:50:00")
@@ -99,13 +99,13 @@ def test_append_price_row_writes_template_format_header_and_row(tmp_path):
     assert rows == [
         {
             "Date": "2/9/2026 17:50:00",
-            "Average": "377.0",
-            "Buy Buyout 100M": "382.0",
-            "Buy Buyout 1B": "382.0",
-            "Buy Buyout 10B": "382.0",
-            "Sell Buyout 100M": "375.0",
-            "Sell Buyout 1B": "375.0",
-            "Sell Buyout 10B": "375.0",
+            "Average": "377",
+            "Buy Buyout 100M": "382",
+            "Buy Buyout 1B": "382",
+            "Buy Buyout 10B": "382",
+            "Sell Buyout 100M": "375",
+            "Sell Buyout 1B": "375",
+            "Sell Buyout 10B": "375",
             "Notes": "",
         }
     ]

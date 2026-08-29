@@ -35,11 +35,12 @@ else:
 _TESSERACT_CONFIG = "--psm 7 -c tessedit_char_whitelist=0123456789,."
 
 
-def _parse_price_text(text: str) -> float | None:
+def _parse_price_text(text: str) -> int | None:
     """Turn raw OCR output into a price, or None if it doesn't cleanly
     parse as one. Deliberately conservative: garbage in means None out,
     not a best-effort guess - a wrong recorded price is worse than a
-    missing one (the raw snapshot is kept either way, see storage.py)."""
+    missing one (the raw snapshot is kept either way, see storage.py).
+    Returns an int, not a float - meso prices are always whole numbers."""
     text = text.strip()
     if not text:
         return None
@@ -47,10 +48,10 @@ def _parse_price_text(text: str) -> float | None:
     text = text.rstrip(".")  # trailing punctuation noise, not a decimal
     if not text.isdigit():
         return None
-    return float(text)
+    return int(text)
 
 
-def parse_price(image: Image.Image) -> float | None:
+def parse_price(image: Image.Image) -> int | None:
     """Extract a numeric price from a captured region via OCR."""
     if pytesseract is None:
         return None

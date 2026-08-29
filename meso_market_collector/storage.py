@@ -26,7 +26,7 @@ PRICE_ROW_FIELDNAMES = [
 ]
 
 
-def price_row_from_readings(readings: dict[str, float | None]) -> dict[str, float | None]:
+def price_row_from_readings(readings: dict[str, int | None]) -> dict[str, int | None]:
     """Map raw per-box OCR readings (keyed like "sell_meso_1", "buy_meso_2",
     as produced by ScreenActions.record_prices) into the wide-row columns
     used by append_price_row. meso_1 is a single "Average" display that's
@@ -49,7 +49,7 @@ def price_row_from_readings(readings: dict[str, float | None]) -> dict[str, floa
 
 
 def append_price_row(
-    row: dict[str, float | None], csv_path: Path = CSV_PATH, timestamp: str | None = None
+    row: dict[str, int | None], csv_path: Path = CSV_PATH, timestamp: str | None = None
 ) -> None:
     """Append one wide-format row (see data/template.csv) - one row per
     collection run. `row` should already be shaped like

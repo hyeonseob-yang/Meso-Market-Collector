@@ -2,16 +2,18 @@ from meso_market_collector.parser import _parse_price_text
 
 
 def test_parses_plain_digits():
-    assert _parse_price_text("377") == 377.0
+    result = _parse_price_text("377")
+    assert result == 377
+    assert isinstance(result, int)  # not 377.0 - meso prices are whole numbers
 
 
 def test_strips_surrounding_whitespace_and_newlines():
-    assert _parse_price_text("  377\n") == 377.0
+    assert _parse_price_text("  377\n") == 377
 
 
 def test_strips_thousands_separator_commas():
-    assert _parse_price_text("1,234") == 1234.0
-    assert _parse_price_text("12,345,678") == 12345678.0
+    assert _parse_price_text("1,234") == 1234
+    assert _parse_price_text("12,345,678") == 12345678
 
 
 def test_returns_none_for_empty_string():
@@ -33,4 +35,4 @@ def test_returns_none_for_mixed_garbage():
 
 
 def test_ignores_trailing_punctuation_noise():
-    assert _parse_price_text("377.") == 377.0
+    assert _parse_price_text("377.") == 377
