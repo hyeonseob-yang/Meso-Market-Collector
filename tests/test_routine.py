@@ -26,8 +26,8 @@ class FakeActions:
     def click_image(self, template):
         self.calls.append(("click_image", template))
 
-    def record_prices(self, region_names, label_prefix=None):
-        self.calls.append(("record_prices", tuple(region_names), label_prefix))
+    def record_prices(self, regions):
+        self.calls.append(("record_prices", dict(regions)))
 
     def press_key(self, key):
         self.calls.append(("press_key", key))
@@ -56,7 +56,7 @@ def test_load_steps_parses_json(tmp_path):
                 {"action": "launch"},
                 {"action": "focus_window", "window_title": "MapleStory"},
                 {"action": "wait_for_user", "message": "Log in, then press Enter"},
-                {"action": "record_prices", "regions": ["meso_1", "meso_2"], "label_prefix": "sell"},
+                {"action": "record_prices", "regions": {"meso_1": "Average", "meso_2": "Sell Buyout 100M"}},
                 {"action": "press_key", "key": "esc"},
                 {"action": "hotkey", "keys": ["alt", "f4"]},
                 {"action": "save_price_row"},
@@ -71,7 +71,7 @@ def test_load_steps_parses_json(tmp_path):
         Step(action="launch"),
         Step(action="focus_window", window_title="MapleStory"),
         Step(action="wait_for_user", message="Log in, then press Enter"),
-        Step(action="record_prices", regions=["meso_1", "meso_2"], label_prefix="sell"),
+        Step(action="record_prices", regions={"meso_1": "Average", "meso_2": "Sell Buyout 100M"}),
         Step(action="press_key", key="esc"),
         Step(action="hotkey", keys=["alt", "f4"]),
         Step(action="save_price_row"),
@@ -94,8 +94,12 @@ def test_run_routine_dispatches_each_step_in_order():
         ),
         Step(
             action="record_prices",
-            regions=["meso_1", "meso_2", "meso_3", "meso_4"],
-            label_prefix="sell",
+            regions={
+                "meso_1": "Average",
+                "meso_2": "Sell Buyout 100M",
+                "meso_3": "Sell Buyout 1B",
+                "meso_4": "Sell Buyout 10B",
+            },
         ),
         Step(
             action="wait_for_image",
@@ -104,8 +108,11 @@ def test_run_routine_dispatches_each_step_in_order():
         ),
         Step(
             action="record_prices",
-            regions=["meso_1", "meso_2", "meso_3", "meso_4"],
-            label_prefix="buy",
+            regions={
+                "meso_2": "Buy Buyout 100M",
+                "meso_3": "Buy Buyout 1B",
+                "meso_4": "Buy Buyout 10B",
+            },
         ),
         Step(action="save_price_row"),
         Step(action="run_task", task_name="MesoMarketCollector_KillMapleStory"),
@@ -120,9 +127,24 @@ def test_run_routine_dispatches_each_step_in_order():
         ("focus_window", "MapleStory"),
         ("wait_for_image", "login_button.png", None),
         ("wait_for_image", "sell_mesos_active.png", "Log in and navigate to the Meso Market Sell tab"),
-        ("record_prices", ("meso_1", "meso_2", "meso_3", "meso_4"), "sell"),
+        (
+            "record_prices",
+            {
+                "meso_1": "Average",
+                "meso_2": "Sell Buyout 100M",
+                "meso_3": "Sell Buyout 1B",
+                "meso_4": "Sell Buyout 10B",
+            },
+        ),
         ("wait_for_image", "buy_mesos_active.png", "Click the Buy Mesos tab"),
-        ("record_prices", ("meso_1", "meso_2", "meso_3", "meso_4"), "buy"),
+        (
+            "record_prices",
+            {
+                "meso_2": "Buy Buyout 100M",
+                "meso_3": "Buy Buyout 1B",
+                "meso_4": "Buy Buyout 10B",
+            },
+        ),
         ("save_price_row",),
         ("run_task", "MesoMarketCollector_KillMapleStory"),
         ("run_task", "MesoMarketCollector_KillNexonLauncher"),

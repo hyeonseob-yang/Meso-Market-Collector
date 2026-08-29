@@ -12,7 +12,7 @@ from pathlib import Path
 from .capture import capture_region
 from .config import load_regions
 from .parser import parse_price
-from .storage import append_price_row, price_row_from_readings, save_snapshot
+from .storage import append_price_row, save_snapshot
 
 try:
     import pyautogui
@@ -41,7 +41,7 @@ class ScreenActions:
         self.stable_seconds = stable_seconds
         self.confidence = confidence
         self.templates_dir = templates_dir
-        self._readings: dict[str, float | None] = {}
+        self._readings: dict[str, int | None] = {}
 
     def _locate(self, template: str):
         # locateOnScreen raises ImageNotFoundException rather than
@@ -118,25 +118,25 @@ class ScreenActions:
     def wait_and_click_image(self, template: str) -> None:
         self.click_image(template)
 
-    def record_prices(self, region_names: list[str], label_prefix: str | None = None) -> None:
-        # region boxes are shared between tabs (same on-screen position); the
-        # prefix (e.g. "sell"/"buy") is what keeps the readings apart.
-        # Accumulated in self._readings rather than written immediately -
-        # save_price_row() combines both tabs' readings into a single row
-        # matching data/template.csv, once the whole run is done.
+    def record_prices(self, regions: dict[str, str]) -> None:
+        # `regions` maps a configured region name to the exact output label
+        # to record it under (e.g. "meso_2" -> "Sell Buyout 100M") - the
+        # label goes straight into self._readings under the same name
+        # save_price_row() will use as the final CSV column, so no
+        # separate remapping step is needed afterward. Accumulated here
+        # rather than written immediately, since a full row combines
+        # readings from both the Sell and Buy tab captures.
         regions_by_name = {r.name: r for r in load_regions()}
-        for name in region_names:
+        for name, label in regions.items():
             region = regions_by_name[name]
             image = capture_region(region)
             price = parse_price(image)
-            label = f"{label_prefix}_{name}" if label_prefix else name
             if price is None:
                 save_snapshot(label, image)
             self._readings[label] = price
 
     def save_price_row(self) -> None:
-        row = price_row_from_readings(self._readings)
-        append_price_row(row)
+        append_price_row(self._readings)
         self._readings = {}
 
     def press_key(self, key: str) -> None:

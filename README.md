@@ -51,11 +51,14 @@ actually running the game automation.
    ```bash
    python -m tools.find_coords
    ```
-   Edit [`config/regions.json`](config/regions.json). The routine captures
-   this same set twice — once per tab — and labels each recording
-   `sell_meso_*`/`buy_meso_*` via `label_prefix` in
-   [`config/routine.json`](config/routine.json), so the two tabs still end
-   up as distinct rows in the CSV.
+   Edit [`config/regions.json`](config/regions.json). `meso_1` reads
+   identically regardless of which tab is showing (confirmed, not just
+   assumed), so it's only captured once, on the Sell pass. Each
+   `record_prices` step in [`config/routine.json`](config/routine.json)
+   maps region names directly to their final CSV column name — e.g.
+   `{"meso_2": "Sell Buyout 100M"}` — so what you see in
+   `data/price_history.csv` matches what's in `config/routine.json`
+   directly, with no separate relabeling step in between.
 
 2. **Launch task.** The game is started via a Windows Scheduled Task rather
    than running the launcher/game exe directly — see "Why a Scheduled Task"

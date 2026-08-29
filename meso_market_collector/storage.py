@@ -26,37 +26,17 @@ PRICE_ROW_FIELDNAMES = [
 ]
 
 
-def price_row_from_readings(readings: dict[str, int | None]) -> dict[str, int | None]:
-    """Map raw per-box OCR readings (keyed like "sell_meso_1", "buy_meso_2",
-    as produced by ScreenActions.record_prices) into the wide-row columns
-    used by append_price_row. meso_1 is a single "Average" display that's
-    identical regardless of which tab is showing (confirmed: it read the
-    same value on both the Sell and Buy tab in testing), so either
-    reading of it works - prefer the Sell one, falling back to Buy's if
-    that one's missing/unreadable."""
-    average = readings.get("sell_meso_1")
-    if average is None:
-        average = readings.get("buy_meso_1")
-    return {
-        "Average": average,
-        "Buy Buyout 100M": readings.get("buy_meso_2"),
-        "Buy Buyout 1B": readings.get("buy_meso_3"),
-        "Buy Buyout 10B": readings.get("buy_meso_4"),
-        "Sell Buyout 100M": readings.get("sell_meso_2"),
-        "Sell Buyout 1B": readings.get("sell_meso_3"),
-        "Sell Buyout 10B": readings.get("sell_meso_4"),
-    }
-
-
 def append_price_row(
     row: dict[str, int | None], csv_path: Path = CSV_PATH, timestamp: str | None = None
 ) -> None:
     """Append one wide-format row (see data/template.csv) - one row per
-    collection run. `row` should already be shaped like
-    price_row_from_readings' output; Date (local time, matching the
-    template's hand-entered convention - not the UTC timestamps
-    append_region_reading uses) and a blank Notes column are filled in
-    automatically unless a `timestamp` is given (mainly for tests)."""
+    collection run. `row` should already have PRICE_ROW_FIELDNAMES'
+    price columns as keys (e.g. "Average", "Buy Buyout 100M") - see
+    ScreenActions.record_prices, which captures directly under these
+    names. Date (local time, matching the template's hand-entered
+    convention - not the UTC timestamps append_region_reading uses) and a
+    blank Notes column are filled in automatically unless a `timestamp` is
+    given (mainly for tests)."""
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     is_new = not csv_path.exists()
     if timestamp is None:

@@ -17,8 +17,7 @@ from typing import Protocol
 class Step:
     action: str
     template: str | None = None
-    regions: list[str] | None = None
-    label_prefix: str | None = None
+    regions: dict[str, str] | None = None
     key: str | None = None
     keys: list[str] | None = None
     window_title: str | None = None
@@ -41,7 +40,7 @@ class GameActions(Protocol):
     def wait_for_image(self, template: str, message: str | None = None) -> None: ...
     def wait_for_stable_image(self, template: str) -> None: ...
     def click_image(self, template: str) -> None: ...
-    def record_prices(self, region_names: list[str], label_prefix: str | None = None) -> None: ...
+    def record_prices(self, regions: dict[str, str]) -> None: ...
     def press_key(self, key: str) -> None: ...
     def hotkey(self, keys: list[str]) -> None: ...
     def focus_window(self, window_title: str) -> None: ...
@@ -63,7 +62,7 @@ def run_routine(steps: list[Step], task_name: str, actions: GameActions) -> None
         elif step.action == "click_image":
             actions.click_image(step.template)
         elif step.action == "record_prices":
-            actions.record_prices(step.regions, step.label_prefix)
+            actions.record_prices(step.regions)
         elif step.action == "press_key":
             actions.press_key(step.key)
         elif step.action == "hotkey":

@@ -1,6 +1,6 @@
 import csv
 
-from meso_market_collector.storage import append_price_row, append_region_reading, price_row_from_readings
+from meso_market_collector.storage import append_price_row, append_region_reading
 
 
 def test_append_region_reading_writes_header_and_row(tmp_path):
@@ -17,54 +17,27 @@ def test_append_region_reading_writes_header_and_row(tmp_path):
     assert all(r["timestamp"] for r in rows)
 
 
-def test_price_row_from_readings_maps_columns():
-    readings = {
-        "sell_meso_1": 377,
-        "sell_meso_2": 375,
-        "sell_meso_3": 375,
-        "sell_meso_4": 375,
-        "buy_meso_1": 377,
-        "buy_meso_2": 382,
-        "buy_meso_3": 382,
-        "buy_meso_4": 382,
-    }
+def test_append_price_row_fills_missing_columns_blank(tmp_path):
+    csv_path = tmp_path / "price_history.csv"
 
-    row = price_row_from_readings(readings)
+    append_price_row({"Average": 377}, csv_path=csv_path, timestamp="2/9/2026 17:50:00")
 
-    assert row == {
-        "Average": 377,
-        "Buy Buyout 100M": 382,
-        "Buy Buyout 1B": 382,
-        "Buy Buyout 10B": 382,
-        "Sell Buyout 100M": 375,
-        "Sell Buyout 1B": 375,
-        "Sell Buyout 10B": 375,
-    }
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
 
-
-def test_price_row_from_readings_falls_back_to_buy_average_if_sell_missing():
-    readings = {
-        "sell_meso_1": None,
-        "buy_meso_1": 377,
-    }
-
-    row = price_row_from_readings(readings)
-
-    assert row["Average"] == 377
-
-
-def test_price_row_from_readings_handles_missing_keys():
-    row = price_row_from_readings({})
-
-    assert row == {
-        "Average": None,
-        "Buy Buyout 100M": None,
-        "Buy Buyout 1B": None,
-        "Buy Buyout 10B": None,
-        "Sell Buyout 100M": None,
-        "Sell Buyout 1B": None,
-        "Sell Buyout 10B": None,
-    }
+    assert rows == [
+        {
+            "Date": "2/9/2026 17:50:00",
+            "Average": "377",
+            "Buy Buyout 100M": "",
+            "Buy Buyout 1B": "",
+            "Buy Buyout 10B": "",
+            "Sell Buyout 100M": "",
+            "Sell Buyout 1B": "",
+            "Sell Buyout 10B": "",
+            "Notes": "",
+        }
+    ]
 
 
 def test_append_price_row_writes_template_format_header_and_row(tmp_path):
