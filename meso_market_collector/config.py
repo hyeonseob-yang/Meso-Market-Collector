@@ -14,6 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 REGIONS_FILE = PROJECT_ROOT / "config" / "regions.json"
 DATA_DIR = PROJECT_ROOT / "data"
 CSV_PATH = DATA_DIR / "price_history.csv"
+REGION_READINGS_CSV_PATH = DATA_DIR / "region_readings.csv"
 
 
 @dataclass(frozen=True)

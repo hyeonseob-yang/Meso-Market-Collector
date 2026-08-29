@@ -197,12 +197,20 @@ python -m meso_market_collector.session --task-name "MesoMarketCollector_MapleSt
 ```
 
 The task name is passed in each run rather than stored in config. Recorded
-prices are appended to `data/price_history.csv` via OCR
+prices are read via OCR
 ([`meso_market_collector/parser.py`](meso_market_collector/parser.py),
-using [pytesseract](https://github.com/madmaze/pytesseract)). If OCR can't
-cleanly read a box (blank, or anything that isn't purely digits), the price
-is left blank and the raw crop is saved to `data/snapshots/` instead, so no
-data is silently lost or wrong.
+using [pytesseract](https://github.com/madmaze/pytesseract)) and appended
+to `data/price_history.csv` as **one row per run**, matching the columns of
+`data/template.csv` (a hand-maintained example of the desired shape):
+`Date, Average, Buy Buyout 100M, Buy Buyout 1B, Buy Buyout 10B,
+Sell Buyout 100M, Sell Buyout 1B, Sell Buyout 10B, Notes` (`Notes` is
+always left blank for you to fill in by hand). `Average` comes from the
+`meso_1` box, which reads identically regardless of which tab is
+showing — confirmed empirically, not just assumed — so it's captured once
+per row rather than separately for each tab. If OCR can't cleanly read a
+box (blank, or anything that isn't purely digits), that cell is left blank
+and the raw crop is saved to `data/snapshots/` instead, so no data is
+silently lost or wrong.
 
 **OCR needs the actual Tesseract engine, not just the `pytesseract` pip
 package** (`pytesseract` is a thin wrapper — pip alone doesn't install the
@@ -224,8 +232,11 @@ pytesseract.pytesseract.tesseract_cmd = r"C:\path\to\tesseract.exe"
 python -m meso_market_collector.collect
 ```
 
-Captures every region in `config/regions.json` once and appends to the CSV
-— useful for a cron job when the game/market screen is already open:
+Captures every region in `config/regions.json` once and appends a flat,
+one-row-per-box reading to `data/region_readings.csv` (a different, simpler
+format from `price_history.csv` above — this entrypoint is generic across
+arbitrary regions, with no sell/buy-tab concept to build a combined row
+from) — useful for a cron job when the game/market screen is already open:
 
 ```cron
 * * * * * cd /home/hya81/Meso-Market-Collector && .venv/bin/python -m meso_market_collector.collect >> data/collector.log 2>&1

@@ -47,6 +47,7 @@ class GameActions(Protocol):
     def focus_window(self, window_title: str) -> None: ...
     def run_task(self, task_name: str) -> None: ...
     def wait_for_user(self, message: str) -> None: ...
+    def save_price_row(self) -> None: ...
 
 
 def run_routine(steps: list[Step], task_name: str, actions: GameActions) -> None:
@@ -73,5 +74,7 @@ def run_routine(steps: list[Step], task_name: str, actions: GameActions) -> None
             actions.run_task(step.task_name)
         elif step.action == "wait_for_user":
             actions.wait_for_user(step.message)
+        elif step.action == "save_price_row":
+            actions.save_price_row()
         else:
             raise ValueError(f"Unknown action: {step.action!r}")

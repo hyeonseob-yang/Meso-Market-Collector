@@ -9,7 +9,7 @@ from __future__ import annotations
 from .capture import capture_region
 from .config import load_regions
 from .parser import parse_price
-from .storage import append_price, save_snapshot
+from .storage import append_region_reading, save_snapshot
 
 
 def run() -> None:
@@ -20,7 +20,7 @@ def run() -> None:
             # No parser wired up yet - keep the raw crop so it can be
             # labeled/inspected later instead of silently losing the data.
             save_snapshot(region.name, image)
-        append_price(region.name, price)
+        append_region_reading(region.name, price)
 
 
 if __name__ == "__main__":

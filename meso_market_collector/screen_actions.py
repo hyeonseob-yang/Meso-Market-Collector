@@ -12,7 +12,7 @@ from pathlib import Path
 from .capture import capture_region
 from .config import load_regions
 from .parser import parse_price
-from .storage import append_price, save_snapshot
+from .storage import append_price_row, price_row_from_readings, save_snapshot
 
 try:
     import pyautogui
@@ -41,6 +41,7 @@ class ScreenActions:
         self.stable_seconds = stable_seconds
         self.confidence = confidence
         self.templates_dir = templates_dir
+        self._readings: dict[str, float | None] = {}
 
     def _locate(self, template: str):
         # locateOnScreen raises ImageNotFoundException rather than
@@ -119,7 +120,10 @@ class ScreenActions:
 
     def record_prices(self, region_names: list[str], label_prefix: str | None = None) -> None:
         # region boxes are shared between tabs (same on-screen position); the
-        # prefix (e.g. "sell"/"buy") is what keeps the recorded rows apart.
+        # prefix (e.g. "sell"/"buy") is what keeps the readings apart.
+        # Accumulated in self._readings rather than written immediately -
+        # save_price_row() combines both tabs' readings into a single row
+        # matching data/template.csv, once the whole run is done.
         regions_by_name = {r.name: r for r in load_regions()}
         for name in region_names:
             region = regions_by_name[name]
@@ -128,7 +132,12 @@ class ScreenActions:
             label = f"{label_prefix}_{name}" if label_prefix else name
             if price is None:
                 save_snapshot(label, image)
-            append_price(label, price)
+            self._readings[label] = price
+
+    def save_price_row(self) -> None:
+        row = price_row_from_readings(self._readings)
+        append_price_row(row)
+        self._readings = {}
 
     def press_key(self, key: str) -> None:
         pyautogui.press(key)

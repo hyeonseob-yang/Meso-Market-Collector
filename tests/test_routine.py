@@ -44,6 +44,9 @@ class FakeActions:
     def wait_for_user(self, message):
         self.calls.append(("wait_for_user", message))
 
+    def save_price_row(self):
+        self.calls.append(("save_price_row",))
+
 
 def test_load_steps_parses_json(tmp_path):
     routine_file = tmp_path / "routine.json"
@@ -56,6 +59,7 @@ def test_load_steps_parses_json(tmp_path):
                 {"action": "record_prices", "regions": ["meso_1", "meso_2"], "label_prefix": "sell"},
                 {"action": "press_key", "key": "esc"},
                 {"action": "hotkey", "keys": ["alt", "f4"]},
+                {"action": "save_price_row"},
                 {"action": "run_task", "task_name": "MesoMarketCollector_KillMapleStory"},
             ]
         )
@@ -70,6 +74,7 @@ def test_load_steps_parses_json(tmp_path):
         Step(action="record_prices", regions=["meso_1", "meso_2"], label_prefix="sell"),
         Step(action="press_key", key="esc"),
         Step(action="hotkey", keys=["alt", "f4"]),
+        Step(action="save_price_row"),
         Step(action="run_task", task_name="MesoMarketCollector_KillMapleStory"),
     ]
 
@@ -102,6 +107,7 @@ def test_run_routine_dispatches_each_step_in_order():
             regions=["meso_1", "meso_2", "meso_3", "meso_4"],
             label_prefix="buy",
         ),
+        Step(action="save_price_row"),
         Step(action="run_task", task_name="MesoMarketCollector_KillMapleStory"),
         Step(action="run_task", task_name="MesoMarketCollector_KillNexonLauncher"),
     ]
@@ -117,6 +123,7 @@ def test_run_routine_dispatches_each_step_in_order():
         ("record_prices", ("meso_1", "meso_2", "meso_3", "meso_4"), "sell"),
         ("wait_for_image", "buy_mesos_active.png", "Click the Buy Mesos tab"),
         ("record_prices", ("meso_1", "meso_2", "meso_3", "meso_4"), "buy"),
+        ("save_price_row",),
         ("run_task", "MesoMarketCollector_KillMapleStory"),
         ("run_task", "MesoMarketCollector_KillNexonLauncher"),
     ]
@@ -180,6 +187,14 @@ def test_run_routine_dispatches_wait_for_user():
     run_routine([Step(action="wait_for_user", message="do the thing")], task_name="x", actions=actions)
 
     assert actions.calls == [("wait_for_user", "do the thing")]
+
+
+def test_run_routine_dispatches_save_price_row():
+    actions = FakeActions()
+
+    run_routine([Step(action="save_price_row")], task_name="x", actions=actions)
+
+    assert actions.calls == [("save_price_row",)]
 
 
 def test_run_routine_rejects_unknown_action():
