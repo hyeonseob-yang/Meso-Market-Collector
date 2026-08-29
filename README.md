@@ -197,11 +197,26 @@ python -m meso_market_collector.session --task-name "MesoMarketCollector_MapleSt
 ```
 
 The task name is passed in each run rather than stored in config. Recorded
-prices are appended to `data/price_history.csv`. Price parsing (turning a
-screenshot into a number) isn't implemented yet — see the note in
-[`meso_market_collector/parser.py`](meso_market_collector/parser.py) for
-options (OCR via pytesseract, etc). Until then, each recorded box also saves
-its raw crop to `data/snapshots/` so no data is lost.
+prices are appended to `data/price_history.csv` via OCR
+([`meso_market_collector/parser.py`](meso_market_collector/parser.py),
+using [pytesseract](https://github.com/madmaze/pytesseract)). If OCR can't
+cleanly read a box (blank, or anything that isn't purely digits), the price
+is left blank and the raw crop is saved to `data/snapshots/` instead, so no
+data is silently lost or wrong.
+
+**OCR needs the actual Tesseract engine, not just the `pytesseract` pip
+package** (`pytesseract` is a thin wrapper — pip alone doesn't install the
+underlying OCR binary). On Windows: `winget install --id tesseract-ocr.tesseract -e`
+(or install manually from
+[UB-Mannheim's Tesseract builds](https://github.com/UB-Mannheim/tesseract/wiki)).
+`parser.py` auto-detects the default install location
+(`C:\Program Files\Tesseract-OCR\tesseract.exe`) if it's not on PATH yet
+(common right after installing, until you open a fresh shell), so no
+manual configuration is usually needed. If you installed somewhere else,
+set it explicitly near the top of `parser.py`:
+```python
+pytesseract.pytesseract.tesseract_cmd = r"C:\path\to\tesseract.exe"
+```
 
 ## Run a bare capture pass (game already running, no launch/navigation)
 
