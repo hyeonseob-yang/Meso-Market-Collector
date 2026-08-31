@@ -2,12 +2,18 @@
 from __future__ import annotations
 
 import csv
-from datetime import datetime, timezone
+import re
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from PIL import Image
 
 from .config import CSV_PATH, DATA_DIR, REGION_READINGS_CSV_PATH
+
+# Matches the "<item>_<timestamp>.png" naming save_snapshot uses, e.g.
+# "sell_meso_average_20260828T103454672715.png" - captures just the
+# timestamp portion (%Y%m%dT%H%M%S%f).
+_SNAPSHOT_TIMESTAMP_RE = re.compile(r"_(\d{8}T\d{12})\.png$")
 
 REGION_READING_FIELDNAMES = ["timestamp", "item", "price"]
 
@@ -77,3 +83,29 @@ def save_snapshot(item: str, image: Image.Image, snapshot_dir: Path = DATA_DIR /
     path = snapshot_dir / f"{item}_{timestamp}.png"
     image.save(path)
     return path
+
+
+def clear_old_snapshots(
+    max_age_days: float, snapshot_dir: Path = DATA_DIR / "snapshots", now: datetime | None = None
+) -> list[Path]:
+    """Delete snapshot PNGs older than `max_age_days`, going by the
+    timestamp embedded in each filename (see save_snapshot) rather than
+    filesystem mtime, which copying/backing up a file could reset.
+    Anything not matching that naming is left alone. Returns the paths
+    that were actually deleted, for logging/testing. `now` is mainly for
+    tests - defaults to the current UTC time."""
+    if now is None:
+        now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=max_age_days)
+    deleted: list[Path] = []
+    if not snapshot_dir.exists():
+        return deleted
+    for path in sorted(snapshot_dir.glob("*.png")):
+        match = _SNAPSHOT_TIMESTAMP_RE.search(path.name)
+        if not match:
+            continue
+        taken_at = datetime.strptime(match.group(1), "%Y%m%dT%H%M%S%f").replace(tzinfo=timezone.utc)
+        if taken_at < cutoff:
+            path.unlink()
+            deleted.append(path)
+    return deleted

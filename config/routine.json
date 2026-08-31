@@ -7,6 +7,7 @@
   {"action": "wait_for_image", "template": "buy_mesos_active.png", "message": "Click the Buy Mesos tab."},
   {"action": "record_prices", "regions": {"meso_100m": "Buy Buyout 100M", "meso_1b": "Buy Buyout 1B", "meso_10b": "Buy Buyout 10B"}},
   {"action": "save_price_row"},
+  {"action": "clear_old_snapshots", "max_age_days": 7},
   {"action": "run_task", "task_name": "MesoMarketCollector_KillMapleStory"},
   {"action": "run_task", "task_name": "MesoMarketCollector_KillNexonLauncher"}
 ]

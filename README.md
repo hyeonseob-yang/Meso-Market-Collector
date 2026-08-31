@@ -218,7 +218,11 @@ showing — confirmed empirically, not just assumed — so it's captured once
 per row rather than separately for each tab. If OCR can't cleanly read a
 box (blank, or anything that isn't purely digits), that cell is left blank
 and the raw crop is saved to `data/snapshots/` instead, so no data is
-silently lost or wrong.
+silently lost or wrong. Snapshots older than 7 days get cleared
+automatically each run (`clear_old_snapshots` step in
+`config/routine.json`, by the timestamp embedded in each filename — not
+file mtime, which a copy/backup could reset); adjust `max_age_days` there
+if you want to keep them longer.
 
 **OCR needs the actual Tesseract engine, not just the `pytesseract` pip
 package** (`pytesseract` is a thin wrapper — pip alone doesn't install the

@@ -12,7 +12,7 @@ from pathlib import Path
 from .capture import capture_region
 from .config import load_regions
 from .parser import parse_price
-from .storage import append_price_row, save_snapshot
+from .storage import append_price_row, clear_old_snapshots, save_snapshot
 
 try:
     import pyautogui
@@ -138,6 +138,9 @@ class ScreenActions:
     def save_price_row(self) -> None:
         append_price_row(self._readings)
         self._readings = {}
+
+    def clear_old_snapshots(self, max_age_days: float) -> None:
+        clear_old_snapshots(max_age_days)
 
     def press_key(self, key: str) -> None:
         pyautogui.press(key)

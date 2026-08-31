@@ -47,6 +47,9 @@ class FakeActions:
     def save_price_row(self):
         self.calls.append(("save_price_row",))
 
+    def clear_old_snapshots(self, max_age_days):
+        self.calls.append(("clear_old_snapshots", max_age_days))
+
 
 def test_load_steps_parses_json(tmp_path):
     routine_file = tmp_path / "routine.json"
@@ -60,6 +63,7 @@ def test_load_steps_parses_json(tmp_path):
                 {"action": "press_key", "key": "esc"},
                 {"action": "hotkey", "keys": ["alt", "f4"]},
                 {"action": "save_price_row"},
+                {"action": "clear_old_snapshots", "max_age_days": 7},
                 {"action": "run_task", "task_name": "MesoMarketCollector_KillMapleStory"},
             ]
         )
@@ -75,6 +79,7 @@ def test_load_steps_parses_json(tmp_path):
         Step(action="press_key", key="esc"),
         Step(action="hotkey", keys=["alt", "f4"]),
         Step(action="save_price_row"),
+        Step(action="clear_old_snapshots", max_age_days=7),
         Step(action="run_task", task_name="MesoMarketCollector_KillMapleStory"),
     ]
 
@@ -217,6 +222,14 @@ def test_run_routine_dispatches_save_price_row():
     run_routine([Step(action="save_price_row")], task_name="x", actions=actions)
 
     assert actions.calls == [("save_price_row",)]
+
+
+def test_run_routine_dispatches_clear_old_snapshots():
+    actions = FakeActions()
+
+    run_routine([Step(action="clear_old_snapshots", max_age_days=7)], task_name="x", actions=actions)
+
+    assert actions.calls == [("clear_old_snapshots", 7)]
 
 
 def test_run_routine_rejects_unknown_action():

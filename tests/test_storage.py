@@ -1,6 +1,7 @@
 import csv
+from datetime import datetime, timezone
 
-from meso_market_collector.storage import append_price_row, append_region_reading
+from meso_market_collector.storage import append_price_row, append_region_reading, clear_old_snapshots
 
 
 def test_append_region_reading_writes_header_and_row(tmp_path):
@@ -97,3 +98,47 @@ def test_append_price_row_uses_current_local_time_by_default(tmp_path):
     import re
 
     assert re.match(r"^\d{1,2}/\d{1,2}/\d{4} \d{1,2}:\d{2}:\d{2}$", rows[0]["Date"])
+
+
+def _snapshot_filename(item: str, when: datetime) -> str:
+    return f"{item}_{when.strftime('%Y%m%dT%H%M%S%f')}.png"
+
+
+def test_clear_old_snapshots_deletes_files_past_max_age(tmp_path):
+    now = datetime(2026, 1, 30, tzinfo=timezone.utc)
+    old_file = tmp_path / _snapshot_filename("sell_meso_average", datetime(2026, 1, 1, tzinfo=timezone.utc))
+    old_file.write_bytes(b"fake png")
+
+    deleted = clear_old_snapshots(max_age_days=7, snapshot_dir=tmp_path, now=now)
+
+    assert deleted == [old_file]
+    assert not old_file.exists()
+
+
+def test_clear_old_snapshots_keeps_files_within_max_age(tmp_path):
+    now = datetime(2026, 1, 30, tzinfo=timezone.utc)
+    recent_file = tmp_path / _snapshot_filename("sell_meso_average", datetime(2026, 1, 29, tzinfo=timezone.utc))
+    recent_file.write_bytes(b"fake png")
+
+    deleted = clear_old_snapshots(max_age_days=7, snapshot_dir=tmp_path, now=now)
+
+    assert deleted == []
+    assert recent_file.exists()
+
+
+def test_clear_old_snapshots_ignores_non_matching_filenames(tmp_path):
+    unrelated = tmp_path / "not_a_snapshot.png"
+    unrelated.write_bytes(b"fake png")
+
+    deleted = clear_old_snapshots(max_age_days=7, snapshot_dir=tmp_path, now=datetime.now(timezone.utc))
+
+    assert deleted == []
+    assert unrelated.exists()
+
+
+def test_clear_old_snapshots_handles_missing_directory(tmp_path):
+    missing_dir = tmp_path / "does_not_exist"
+
+    deleted = clear_old_snapshots(max_age_days=7, snapshot_dir=missing_dir, now=datetime.now(timezone.utc))
+
+    assert deleted == []
