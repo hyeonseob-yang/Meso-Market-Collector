@@ -9,6 +9,7 @@ import subprocess
 import time
 from pathlib import Path
 
+from .api_client import post_price_row as post_price_row_api
 from .capture import capture_region
 from .config import load_regions
 from .parser import parse_price
@@ -42,6 +43,7 @@ class ScreenActions:
         self.confidence = confidence
         self.templates_dir = templates_dir
         self._readings: dict[str, int | None] = {}
+        self._last_saved_row: dict[str, int | None] = {}
 
     def _locate(self, template: str):
         # locateOnScreen raises ImageNotFoundException rather than
@@ -137,7 +139,15 @@ class ScreenActions:
 
     def save_price_row(self) -> None:
         append_price_row(self._readings)
+        self._last_saved_row = self._readings
         self._readings = {}
+
+    def post_price_row(self) -> None:
+        # Sends whatever save_price_row most recently wrote to the CSV -
+        # not self._readings, which save_price_row has already cleared by
+        # the time this runs (see routine.json, where this step follows
+        # save_price_row).
+        post_price_row_api(self._last_saved_row)
 
     def clear_old_snapshots(self, max_age_days: float) -> None:
         clear_old_snapshots(max_age_days)

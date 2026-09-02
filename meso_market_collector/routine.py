@@ -48,6 +48,7 @@ class GameActions(Protocol):
     def run_task(self, task_name: str) -> None: ...
     def wait_for_user(self, message: str) -> None: ...
     def save_price_row(self) -> None: ...
+    def post_price_row(self) -> None: ...
     def clear_old_snapshots(self, max_age_days: float) -> None: ...
 
 
@@ -77,6 +78,8 @@ def run_routine(steps: list[Step], task_name: str, actions: GameActions) -> None
             actions.wait_for_user(step.message)
         elif step.action == "save_price_row":
             actions.save_price_row()
+        elif step.action == "post_price_row":
+            actions.post_price_row()
         elif step.action == "clear_old_snapshots":
             actions.clear_old_snapshots(step.max_age_days)
         else:

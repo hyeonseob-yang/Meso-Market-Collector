@@ -27,8 +27,8 @@ repo — no need to copy anything. Adjust the distro name if not `Ubuntu`.)
 
 The plain `.venv` at the repo root (`python3 -m venv .venv` from WSL) is
 still useful for editing/running the display-independent tests
-(`routine.py`, `config.py`, `storage.py`) from within WSL — just not for
-actually running the game automation.
+(`routine.py`, `config.py`, `storage.py`, `api_client.py`) from within WSL —
+just not for actually running the game automation.
 
 ## Configure
 
@@ -218,7 +218,17 @@ showing — confirmed empirically, not just assumed — so it's captured once
 per row rather than separately for each tab. If OCR can't cleanly read a
 box (blank, or anything that isn't purely digits), that cell is left blank
 and the raw crop is saved to `data/snapshots/` instead, so no data is
-silently lost or wrong. Snapshots older than 7 days get cleared
+silently lost or wrong. The same row is then POSTed to the sibling
+[Meso-Market-Tracker](../Meso-Market-Tracker) project's GraphQL API
+(`post_price_row` step, right after `save_price_row`, in
+`config/routine.json`) — see
+[`meso_market_collector/api_client.py`](meso_market_collector/api_client.py)
+for the request built and `TRACKER_API_URL` for where it's sent. Like any
+other step, a failed request (via `requests`' `raise_for_status()`) stops
+the routine there, skipping the cleanup steps after it — same as an OCR
+`wait_for_image` timeout already could; the CSV row from `save_price_row`
+is unaffected either way since it happens first. Snapshots older than 7
+days get cleared
 automatically each run (`clear_old_snapshots` step in
 `config/routine.json`, by the timestamp embedded in each filename — not
 file mtime, which a copy/backup could reset); adjust `max_age_days` there

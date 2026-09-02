@@ -47,6 +47,9 @@ class FakeActions:
     def save_price_row(self):
         self.calls.append(("save_price_row",))
 
+    def post_price_row(self):
+        self.calls.append(("post_price_row",))
+
     def clear_old_snapshots(self, max_age_days):
         self.calls.append(("clear_old_snapshots", max_age_days))
 
@@ -63,6 +66,7 @@ def test_load_steps_parses_json(tmp_path):
                 {"action": "press_key", "key": "esc"},
                 {"action": "hotkey", "keys": ["alt", "f4"]},
                 {"action": "save_price_row"},
+                {"action": "post_price_row"},
                 {"action": "clear_old_snapshots", "max_age_days": 7},
                 {"action": "run_task", "task_name": "MesoMarketCollector_KillMapleStory"},
             ]
@@ -79,6 +83,7 @@ def test_load_steps_parses_json(tmp_path):
         Step(action="press_key", key="esc"),
         Step(action="hotkey", keys=["alt", "f4"]),
         Step(action="save_price_row"),
+        Step(action="post_price_row"),
         Step(action="clear_old_snapshots", max_age_days=7),
         Step(action="run_task", task_name="MesoMarketCollector_KillMapleStory"),
     ]
@@ -120,6 +125,7 @@ def test_run_routine_dispatches_each_step_in_order():
             },
         ),
         Step(action="save_price_row"),
+        Step(action="post_price_row"),
         Step(action="run_task", task_name="MesoMarketCollector_KillMapleStory"),
         Step(action="run_task", task_name="MesoMarketCollector_KillNexonLauncher"),
     ]
@@ -151,6 +157,7 @@ def test_run_routine_dispatches_each_step_in_order():
             },
         ),
         ("save_price_row",),
+        ("post_price_row",),
         ("run_task", "MesoMarketCollector_KillMapleStory"),
         ("run_task", "MesoMarketCollector_KillNexonLauncher"),
     ]
@@ -222,6 +229,14 @@ def test_run_routine_dispatches_save_price_row():
     run_routine([Step(action="save_price_row")], task_name="x", actions=actions)
 
     assert actions.calls == [("save_price_row",)]
+
+
+def test_run_routine_dispatches_post_price_row():
+    actions = FakeActions()
+
+    run_routine([Step(action="post_price_row")], task_name="x", actions=actions)
+
+    assert actions.calls == [("post_price_row",)]
 
 
 def test_run_routine_dispatches_clear_old_snapshots():
