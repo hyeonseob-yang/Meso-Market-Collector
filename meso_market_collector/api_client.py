@@ -39,17 +39,18 @@ def build_price_payload(row: dict[str, int | None], timestamp: str | None = None
     row. `row` uses the same wide-row keys as storage.append_price_row
     (e.g. "Average", "Buy Buyout 100M") - see ScreenActions, which keeps
     the same reading dict around for both. Missing price columns default
-    to 0.0, matching PriceInput's non-nullable float fields; a missing
-    "Notes" defaults to "". `timestamp` mirrors append_price_row's
-    parameter (mainly for tests) - defaults to now (UTC, ISO 8601), unlike
-    append_price_row's local-time format, since this feeds an API rather
-    than a hand-read CSV."""
+    to 0, matching PriceInput's non-nullable int fields (parser.py already
+    parses OCR prices as int, not float); a missing "Notes" defaults to
+    "". `timestamp` mirrors append_price_row's parameter (mainly for
+    tests) - defaults to now (UTC, ISO 8601), unlike append_price_row's
+    local-time format, since this feeds an API rather than a hand-read
+    CSV."""
     if timestamp is None:
         timestamp = datetime.now(timezone.utc).isoformat()
     price = {"datetime": timestamp, "notes": row.get("Notes") or ""}
     for column, field in _FIELD_MAP.items():
         value = row.get(column)
-        price[field] = float(value) if value is not None else 0.0
+        price[field] = int(value) if value is not None else 0
     return {"query": RECORD_PRICE_MUTATION, "variables": {"price": price}}
 
 
