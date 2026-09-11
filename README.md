@@ -16,14 +16,15 @@ can launch a Windows `.exe`, but can't screenshot or click its window).
 From a Windows terminal (PowerShell/cmd, with Python installed on Windows):
 
 ```powershell
-cd \\wsl$\Ubuntu\home\hya81\Meso-Market-Collector
+cd \\wsl$\<distro>\home\<user>\Meso-Market-Collector
 python -m venv .venv-windows
 .venv-windows\Scripts\activate
 pip install -r requirements-dev.txt
 ```
 
 (`\\wsl$\...` runs Windows Python directly against the files in this WSL
-repo — no need to copy anything. Adjust the distro name if not `Ubuntu`.)
+repo — no need to copy anything. Replace `<distro>` and `<user>` with your
+WSL distro name — e.g. `Ubuntu`, run `wsl -l` to check — and Linux username.)
 
 The plain `.venv` at the repo root (`python3 -m venv .venv` from WSL) is
 still useful for editing/running the display-independent tests
@@ -264,7 +265,7 @@ arbitrary regions, with no sell/buy-tab concept to build a combined row
 from) — useful for a cron job when the game/market screen is already open:
 
 ```cron
-* * * * * cd /home/hya81/Meso-Market-Collector && .venv/bin/python -m meso_market_collector.collect >> data/collector.log 2>&1
+* * * * * cd /path/to/Meso-Market-Collector && .venv/bin/python -m meso_market_collector.collect >> data/collector.log 2>&1
 ```
 
 ## Test
