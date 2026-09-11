@@ -22,14 +22,15 @@ specific things about it don't run anywhere else:
   isn't something this project targets or accounts for (elevation, window
   titles, and process names would all differ).
 
-It needs to actually run under Windows Python — from PowerShell/cmd, with
-Python installed on Windows:
+Develop and run it directly on Windows — clone straight onto the Windows
+filesystem (not through a WSL mount) and use Windows Python throughout,
+from PowerShell/cmd:
 
 ```powershell
 git clone <this-repo-url>
 cd Meso-Market-Collector
-python -m venv .venv-windows
-.\.venv-windows\Scripts\Activate.ps1
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
 ```
 
@@ -37,14 +38,26 @@ pip install -r requirements-dev.txt
 run `Set-ExecutionPolicy -Scope Process RemoteSigned` first and retry.)
 
 `routine.py` and everything else that doesn't touch a real screen
-(`config.py`, `storage.py`, `api_client.py`) is plain, portable Python and
-can be edited/tested from any OS — just not the actual game automation. If
-you're doing that editing from WSL (or another Linux shell) against this
-same repo, rather than a separate native-Windows clone, keep the two
-venvs separately named — `.venv-windows` above for the Windows one vs. a
-plain `.venv` from `python3 -m venv .venv` on the Linux side. Their venv
-layouts aren't compatible (`Scripts/` vs. `bin/`), so giving them the same
-folder name breaks whichever one gets created second.
+(`config.py`, `storage.py`, `api_client.py`) is plain, portable Python, so
+the whole non-screen test suite also just runs there with `pytest` — no
+separate Linux/WSL venv needed for that anymore.
+
+<details>
+<summary>Editing from WSL against the same repo instead (not recommended, but supported)</summary>
+
+If you'd rather edit from WSL (or another Linux shell) pointed at this same
+checkout via `\\wsl.localhost\...`/`\\wsl$\...`, rather than a separate
+native-Windows clone, name the two venvs differently — `.venv-windows` for
+the one created by Windows Python, plain `.venv` for the one created by
+`python3 -m venv .venv` on the Linux side. Their layouts aren't compatible
+(`Scripts/` vs. `bin/`), so giving them the same folder name breaks
+whichever one gets created second. This split adds real friction (slower
+cross-filesystem access either direction, `git config --global
+--add safe.directory` needed for git to trust the WSL-side repo from
+Windows) for no benefit specific to this project - the plain single-OS
+setup above is simpler if you don't have another reason to need WSL here.
+
+</details>
 
 ## Configure
 
