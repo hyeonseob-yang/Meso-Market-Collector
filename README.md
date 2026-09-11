@@ -8,11 +8,22 @@ handling.
 
 ## Setup
 
-This project targets Windows: `session.py`/`screen_actions.py` need
-PyAutoGUI to see and click the real Windows desktop, and `launch`/`run_task`
-shell out to `schtasks` for the Scheduled Tasks that start/stop the game
-(see below). Clone and set it up directly on the Windows machine that will
-actually run it — from PowerShell/cmd, with Python installed on Windows:
+This project is Windows-only, not just "needs a real desktop" — a few
+specific things about it don't run anywhere else:
+
+- `screen_actions.py` imports [PyGetWindow](https://github.com/asweigart/pygetwindow)
+  for `focus_window`, which raises `NotImplementedError` at import time on
+  Linux ("PyGetWindow currently does not support Linux") - the module fails
+  to load before PyAutoGUI's own screen access even comes into play.
+- `launch`/`run_task` shell out to `schtasks`, the Windows Task Scheduler
+  CLI, to start/kill the game - chosen specifically to get around Windows
+  UAC elevation (see below). There's no equivalent command on other OSes.
+- MapleStory itself has no native Linux client; running it via Wine/Proton
+  isn't something this project targets or accounts for (elevation, window
+  titles, and process names would all differ).
+
+Clone and set it up directly on the Windows machine that will actually run
+it — from PowerShell/cmd, with Python installed on Windows:
 
 ```powershell
 git clone <this-repo-url>
