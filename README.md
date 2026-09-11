@@ -8,28 +8,24 @@ handling.
 
 ## Setup
 
-This code is edited from WSL but must actually **run under Windows Python**,
-not WSL Python: `session.py`/`screen_actions.py` need PyAutoGUI to see and
-click the real Windows desktop, which isn't accessible from inside WSL (WSL
-can launch a Windows `.exe`, but can't screenshot or click its window).
-
-From a Windows terminal (PowerShell/cmd, with Python installed on Windows):
+This project targets Windows: `session.py`/`screen_actions.py` need
+PyAutoGUI to see and click the real Windows desktop, and `launch`/`run_task`
+shell out to `schtasks` for the Scheduled Tasks that start/stop the game
+(see below). Clone and set it up directly on the Windows machine that will
+actually run it — from PowerShell/cmd, with Python installed on Windows:
 
 ```powershell
-cd \\wsl$\<distro>\home\<user>\Meso-Market-Collector
-python -m venv .venv-windows
-.venv-windows\Scripts\activate
+git clone <this-repo-url>
+cd Meso-Market-Collector
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements-dev.txt
 ```
 
-(`\\wsl$\...` runs Windows Python directly against the files in this WSL
-repo — no need to copy anything. Replace `<distro>` and `<user>` with your
-WSL distro name — e.g. `Ubuntu`, run `wsl -l` to check — and Linux username.)
-
-The plain `.venv` at the repo root (`python3 -m venv .venv` from WSL) is
-still useful for editing/running the display-independent tests
-(`routine.py`, `config.py`, `storage.py`, `api_client.py`) from within WSL —
-just not for actually running the game automation.
+`routine.py` and everything else that doesn't touch a real screen
+(`config.py`, `storage.py`, `api_client.py`) is plain, portable Python and
+can be edited/tested from any OS — just not the actual game automation,
+which only works on Windows.
 
 ## Configure
 
