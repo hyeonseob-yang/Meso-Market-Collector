@@ -22,14 +22,14 @@ specific things about it don't run anywhere else:
   isn't something this project targets or accounts for (elevation, window
   titles, and process names would all differ).
 
-Clone and set it up directly on the Windows machine that will actually run
-it — from PowerShell/cmd, with Python installed on Windows:
+It needs to actually run under Windows Python — from PowerShell/cmd, with
+Python installed on Windows:
 
 ```powershell
 git clone <this-repo-url>
 cd Meso-Market-Collector
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+python -m venv .venv-windows
+.\.venv-windows\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
 ```
 
@@ -38,8 +38,13 @@ run `Set-ExecutionPolicy -Scope Process RemoteSigned` first and retry.)
 
 `routine.py` and everything else that doesn't touch a real screen
 (`config.py`, `storage.py`, `api_client.py`) is plain, portable Python and
-can be edited/tested from any OS — just not the actual game automation,
-which only works on Windows.
+can be edited/tested from any OS — just not the actual game automation. If
+you're doing that editing from WSL (or another Linux shell) against this
+same repo, rather than a separate native-Windows clone, keep the two
+venvs separately named — `.venv-windows` above for the Windows one vs. a
+plain `.venv` from `python3 -m venv .venv` on the Linux side. Their venv
+layouts aren't compatible (`Scripts/` vs. `bin/`), so giving them the same
+folder name breaks whichever one gets created second.
 
 ## Configure
 
