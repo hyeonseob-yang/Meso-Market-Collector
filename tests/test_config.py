@@ -1,6 +1,6 @@
 import json
 
-from meso_market_collector.config import Region, load_regions
+from meso_market_collector.config import DEFAULT_TRACKER_API_URL, Region, get_tracker_api_url, load_regions
 
 
 def test_load_regions_parses_named_boxes(tmp_path):
@@ -92,3 +92,15 @@ def test_load_regions_mixes_boxes_and_columns(tmp_path):
         Region(name="meso_2", left=10, top=140, width=150, height=30),
         Region(name="other_price", left=300, top=50, width=80, height=20),
     ]
+
+
+def test_get_tracker_api_url_defaults_to_deployed_endpoint(monkeypatch):
+    monkeypatch.delenv("MESO_TRACKER_API_URL", raising=False)
+
+    assert get_tracker_api_url() == DEFAULT_TRACKER_API_URL
+
+
+def test_get_tracker_api_url_reads_env_override(monkeypatch):
+    monkeypatch.setenv("MESO_TRACKER_API_URL", "http://localhost:5000/price")
+
+    assert get_tracker_api_url() == "http://localhost:5000/price"

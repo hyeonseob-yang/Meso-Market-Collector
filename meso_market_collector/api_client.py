@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 
 import requests
 
-TRACKER_API_URL = "http://localhost:5000/price"
+from .config import get_tracker_api_url
 
 RECORD_PRICE_MUTATION = """
 mutation RecordPrice($price: PriceInput!) {
@@ -54,7 +54,9 @@ def build_price_payload(row: dict[str, int | None], timestamp: str | None = None
     return {"query": RECORD_PRICE_MUTATION, "variables": {"price": price}}
 
 
-def post_price_row(row: dict[str, int | None], url: str = TRACKER_API_URL, timeout: float = 10.0) -> None:
+def post_price_row(row: dict[str, int | None], url: str | None = None, timeout: float = 10.0) -> None:
+    if url is None:
+        url = get_tracker_api_url()
     payload = build_price_payload(row)
     response = requests.post(url, json=payload, timeout=timeout)
     response.raise_for_status()

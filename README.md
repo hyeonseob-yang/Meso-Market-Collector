@@ -223,8 +223,11 @@ silently lost or wrong. The same row is then POSTed to the sibling
 (`post_price_row` step, right after `save_price_row`, in
 `config/routine.json`) — see
 [`meso_market_collector/api_client.py`](meso_market_collector/api_client.py)
-for the request built and `TRACKER_API_URL` for where it's sent. Like any
-other step, a failed request (via `requests`' `raise_for_status()`) stops
+for the request built. It's sent to Tracker's deployed API Gateway endpoint
+(`config.DEFAULT_TRACKER_API_URL`) by default — set `MESO_TRACKER_API_URL`
+to override it (e.g. to point at a local `flask run` dev server instead).
+Like any other step, a failed request (via `requests`' `raise_for_status()`)
+stops
 the routine there, skipping the cleanup steps after it — same as an OCR
 `wait_for_image` timeout already could; the CSV row from `save_price_row`
 is unaffected either way since it happens first. Snapshots older than 7

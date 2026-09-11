@@ -7,6 +7,7 @@ left/top/width/height for a region you want to track.
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -15,6 +16,19 @@ REGIONS_FILE = PROJECT_ROOT / "config" / "regions.json"
 DATA_DIR = PROJECT_ROOT / "data"
 CSV_PATH = DATA_DIR / "price_history.csv"
 REGION_READINGS_CSV_PATH = DATA_DIR / "region_readings.csv"
+
+# Meso-Market-Tracker's deployed API Gateway endpoint (see that project's
+# backend/infra/outputs.tf -> backend_url). Overridable via
+# MESO_TRACKER_API_URL, e.g. to point at a local `flask run` dev server
+# instead.
+DEFAULT_TRACKER_API_URL = "https://xa6elv0g44.execute-api.us-east-1.amazonaws.com/price"
+
+
+def get_tracker_api_url() -> str:
+    """Resolved fresh on each call (not a module-level constant) so a
+    MESO_TRACKER_API_URL set after import - e.g. by a test - still takes
+    effect."""
+    return os.environ.get("MESO_TRACKER_API_URL", DEFAULT_TRACKER_API_URL)
 
 
 @dataclass(frozen=True)
