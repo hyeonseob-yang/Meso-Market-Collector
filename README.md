@@ -29,9 +29,12 @@ it — from PowerShell/cmd, with Python installed on Windows:
 git clone <this-repo-url>
 cd Meso-Market-Collector
 python -m venv .venv
-.venv\Scripts\activate
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
 ```
+
+(If activation fails with an execution-policy error rather than running,
+run `Set-ExecutionPolicy -Scope Process RemoteSigned` first and retry.)
 
 `routine.py` and everything else that doesn't touch a real screen
 (`config.py`, `storage.py`, `api_client.py`) is plain, portable Python and
