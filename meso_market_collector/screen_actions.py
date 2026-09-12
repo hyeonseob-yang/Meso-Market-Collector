@@ -45,14 +45,15 @@ class ScreenActions:
         self._readings: dict[str, int | None] = {}
         self._last_saved_row: dict[str, int | None] = {}
 
-    def _locate(self, template: str):
+    def _locate(self, template: str, confidence: float | None = None):
         # locateOnScreen raises ImageNotFoundException rather than
         # returning None when nothing matches - treat that the same as
         # "not found yet" so callers' retry loops actually get to retry,
         # instead of crashing on the very first failed check.
         try:
             return pyautogui.locateOnScreen(
-                str(self.templates_dir / template), confidence=self.confidence
+                str(self.templates_dir / template),
+                confidence=confidence if confidence is not None else self.confidence,
             )
         except pyautogui.ImageNotFoundException:
             return None
@@ -83,12 +84,14 @@ class ScreenActions:
         # `taskkill /F /IM MapleStory.exe`) sidesteps both problems at once.
         self._run_scheduled_task(task_name)
 
-    def wait_for_image(self, template: str, message: str | None = None):
+    def wait_for_image(
+        self, template: str, message: str | None = None, confidence: float | None = None
+    ):
         if message:
             print(f"\n{message}\n(waiting for {template!r} to appear on screen...)", flush=True)
         deadline = time.monotonic() + self.timeout
         while time.monotonic() < deadline:
-            box = self._locate(template)
+            box = self._locate(template, confidence)
             if box:
                 return box
             time.sleep(self.poll_interval)

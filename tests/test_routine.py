@@ -17,8 +17,8 @@ class FakeActions:
     def wait_and_click_image(self, template):
         self.calls.append(("wait_and_click_image", template))
 
-    def wait_for_image(self, template, message=None):
-        self.calls.append(("wait_for_image", template, message))
+    def wait_for_image(self, template, message=None, confidence=None):
+        self.calls.append(("wait_for_image", template, message, confidence))
 
     def wait_for_stable_image(self, template):
         self.calls.append(("wait_for_stable_image", template))
@@ -61,6 +61,7 @@ def test_load_steps_parses_json(tmp_path):
             [
                 {"action": "launch"},
                 {"action": "focus_window", "window_title": "MapleStory"},
+                {"action": "wait_for_image", "template": "login_button.png", "confidence": 0.995},
                 {"action": "wait_for_user", "message": "Log in, then press Enter"},
                 {"action": "record_prices", "regions": {"meso_1": "Average", "meso_2": "Sell Buyout 100M"}},
                 {"action": "press_key", "key": "esc"},
@@ -78,6 +79,7 @@ def test_load_steps_parses_json(tmp_path):
     assert steps == [
         Step(action="launch"),
         Step(action="focus_window", window_title="MapleStory"),
+        Step(action="wait_for_image", template="login_button.png", confidence=0.995),
         Step(action="wait_for_user", message="Log in, then press Enter"),
         Step(action="record_prices", regions={"meso_1": "Average", "meso_2": "Sell Buyout 100M"}),
         Step(action="press_key", key="esc"),
@@ -136,8 +138,8 @@ def test_run_routine_dispatches_each_step_in_order():
     assert actions.calls == [
         ("launch", "MesoMarketCollector_MapleStoryViaLauncher"),
         ("focus_window", "MapleStory"),
-        ("wait_for_image", "login_button.png", None),
-        ("wait_for_image", "sell_mesos_active.png", "Log in and navigate to the Meso Market Sell tab"),
+        ("wait_for_image", "login_button.png", None, None),
+        ("wait_for_image", "sell_mesos_active.png", "Log in and navigate to the Meso Market Sell tab", None),
         (
             "record_prices",
             {
@@ -147,7 +149,7 @@ def test_run_routine_dispatches_each_step_in_order():
                 "meso_4": "Sell Buyout 10B",
             },
         ),
-        ("wait_for_image", "buy_mesos_active.png", "Click the Buy Mesos tab"),
+        ("wait_for_image", "buy_mesos_active.png", "Click the Buy Mesos tab", None),
         (
             "record_prices",
             {
@@ -204,7 +206,7 @@ def test_run_routine_dispatches_wait_for_image_with_message():
         actions=actions,
     )
 
-    assert actions.calls == [("wait_for_image", "thing.png", "do the thing")]
+    assert actions.calls == [("wait_for_image", "thing.png", "do the thing", None)]
 
 
 def test_run_routine_dispatches_wait_for_image_without_message():
@@ -212,7 +214,21 @@ def test_run_routine_dispatches_wait_for_image_without_message():
 
     run_routine([Step(action="wait_for_image", template="thing.png")], task_name="x", actions=actions)
 
-    assert actions.calls == [("wait_for_image", "thing.png", None)]
+    assert actions.calls == [("wait_for_image", "thing.png", None, None)]
+
+
+def test_run_routine_dispatches_wait_for_image_with_confidence():
+    # e.g. login_button.png needs a stricter-than-default confidence to tell
+    # the button's disabled and enabled states apart - see config/routine.json.
+    actions = FakeActions()
+
+    run_routine(
+        [Step(action="wait_for_image", template="login_button.png", confidence=0.995)],
+        task_name="x",
+        actions=actions,
+    )
+
+    assert actions.calls == [("wait_for_image", "login_button.png", None, 0.995)]
 
 
 def test_run_routine_dispatches_wait_for_user():

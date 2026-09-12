@@ -24,6 +24,7 @@ class Step:
     task_name: str | None = None
     message: str | None = None
     max_age_days: float | None = None
+    confidence: float | None = None
 
 
 def load_steps(path: Path) -> list[Step]:
@@ -38,7 +39,9 @@ class GameActions(Protocol):
 
     def launch(self, task_name: str) -> None: ...
     def wait_and_click_image(self, template: str) -> None: ...
-    def wait_for_image(self, template: str, message: str | None = None) -> None: ...
+    def wait_for_image(
+        self, template: str, message: str | None = None, confidence: float | None = None
+    ) -> None: ...
     def wait_for_stable_image(self, template: str) -> None: ...
     def click_image(self, template: str) -> None: ...
     def record_prices(self, regions: dict[str, str]) -> None: ...
@@ -59,7 +62,7 @@ def run_routine(steps: list[Step], task_name: str, actions: GameActions) -> None
         elif step.action == "wait_and_click_image":
             actions.wait_and_click_image(step.template)
         elif step.action == "wait_for_image":
-            actions.wait_for_image(step.template, step.message)
+            actions.wait_for_image(step.template, step.message, step.confidence)
         elif step.action == "wait_for_stable_image":
             actions.wait_for_stable_image(step.template)
         elif step.action == "click_image":
