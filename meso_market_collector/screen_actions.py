@@ -32,7 +32,7 @@ class ScreenActions:
     def __init__(
         self,
         poll_interval: float = 0.5,
-        timeout: float = 180.0,
+        timeout: float = 540.0,
         stable_seconds: float = 1.0,
         confidence: float = 0.8,
         templates_dir: Path = TEMPLATES_DIR,
