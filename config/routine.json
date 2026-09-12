@@ -1,6 +1,6 @@
 [
   {"action": "launch"},
-  {"action": "wait_for_image", "template": "login_button.png", "confidence": 0.995},
+  {"action": "wait_for_image", "template": "login_button.png", "confidence": 0.986},
   {"action": "focus_window", "window_title": "MapleStory"},
   {"action": "wait_for_image", "template": "sell_mesos_active.png", "message": "Log in, click Quick Move, click Meso Market, and make sure the Sell Mesos tab is showing."},
   {"action": "record_prices", "regions": {"meso_average": "Average", "meso_100m": "Sell Buyout 100M", "meso_1b": "Sell Buyout 1B", "meso_10b": "Sell Buyout 10B"}},

@@ -61,7 +61,7 @@ def test_load_steps_parses_json(tmp_path):
             [
                 {"action": "launch"},
                 {"action": "focus_window", "window_title": "MapleStory"},
-                {"action": "wait_for_image", "template": "login_button.png", "confidence": 0.995},
+                {"action": "wait_for_image", "template": "login_button.png", "confidence": 0.986},
                 {"action": "wait_for_user", "message": "Log in, then press Enter"},
                 {"action": "record_prices", "regions": {"meso_1": "Average", "meso_2": "Sell Buyout 100M"}},
                 {"action": "press_key", "key": "esc"},
@@ -79,7 +79,7 @@ def test_load_steps_parses_json(tmp_path):
     assert steps == [
         Step(action="launch"),
         Step(action="focus_window", window_title="MapleStory"),
-        Step(action="wait_for_image", template="login_button.png", confidence=0.995),
+        Step(action="wait_for_image", template="login_button.png", confidence=0.986),
         Step(action="wait_for_user", message="Log in, then press Enter"),
         Step(action="record_prices", regions={"meso_1": "Average", "meso_2": "Sell Buyout 100M"}),
         Step(action="press_key", key="esc"),
@@ -223,12 +223,12 @@ def test_run_routine_dispatches_wait_for_image_with_confidence():
     actions = FakeActions()
 
     run_routine(
-        [Step(action="wait_for_image", template="login_button.png", confidence=0.995)],
+        [Step(action="wait_for_image", template="login_button.png", confidence=0.986)],
         task_name="x",
         actions=actions,
     )
 
-    assert actions.calls == [("wait_for_image", "login_button.png", None, 0.995)]
+    assert actions.calls == [("wait_for_image", "login_button.png", None, 0.986)]
 
 
 def test_run_routine_dispatches_wait_for_user():
