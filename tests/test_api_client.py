@@ -110,7 +110,7 @@ def _fake_response(body, raise_for_status_error=None):
 
 
 @patch("meso_market_collector.api_client.requests.post")
-def test_post_price_row_succeeds_when_recordPrice_returns_an_id(mock_post):
+def test_post_price_row_succeeds_when_recordPrice_returns_an_id(mock_post, capsys):
     # record_price returns the new row's id as a String (schema.py), not a
     # boolean.
     mock_post.return_value = _fake_response({"data": {"recordPrice": "42"}})
@@ -121,6 +121,9 @@ def test_post_price_row_succeeds_when_recordPrice_returns_an_id(mock_post):
     assert args[0] == "https://tracker.example/graphql"
     assert kwargs["json"]["variables"]["price"]["average"] == COMPLETE_ROW["Average"]
     assert "datetime" not in kwargs["json"]["variables"]["price"]
+    # printed (not just silently discarded) so the id is available for
+    # cross-referencing against Tracker/Supabase later.
+    assert "42" in capsys.readouterr().out
 
 
 @patch("meso_market_collector.api_client.requests.post")

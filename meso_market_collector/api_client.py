@@ -91,3 +91,4 @@ def post_price_row(row: dict[str, int | None], url: str | None = None, timeout: 
         message = f"Tracker did not confirm the price row was recorded - response: {body!r}"
         print(message, file=sys.stderr, flush=True)
         raise ValueError(message)
+    print(f"Recorded on Tracker as price id={price_id}", flush=True)
