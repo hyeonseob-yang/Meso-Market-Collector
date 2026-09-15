@@ -73,3 +73,19 @@ def post_price_row(row: dict[str, int | None], url: str | None = None, timeout: 
     payload = build_price_payload(row)
     response = requests.post(url, json=payload, timeout=timeout)
     response.raise_for_status()
+
+    # A GraphQL server conventionally answers a rejected mutation with HTTP
+    # 200 and the failure only in the body - raise_for_status() above can't
+    # see that, so a resolver-level failure (e.g. a validation error) would
+    # otherwise be silently treated as success, same category of problem
+    # build_price_payload guards against for missing prices.
+    body = response.json()
+    errors = body.get("errors")
+    if errors:
+        message = f"Tracker rejected the price row - GraphQL errors: {errors}"
+        print(message, file=sys.stderr, flush=True)
+        raise ValueError(message)
+    if not body.get("data", {}).get("recordPrice"):
+        message = f"Tracker did not confirm the price row was recorded - response: {body!r}"
+        print(message, file=sys.stderr, flush=True)
+        raise ValueError(message)
