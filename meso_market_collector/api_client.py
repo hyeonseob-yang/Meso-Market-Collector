@@ -9,6 +9,7 @@ PriceInput type and mutation this targets.
 """
 from __future__ import annotations
 
+import sys
 from datetime import datetime, timezone
 
 import requests
@@ -38,19 +39,31 @@ def build_price_payload(row: dict[str, int | None], timestamp: str | None = None
     """Build the GraphQL request body for recording one collected price
     row. `row` uses the same wide-row keys as storage.append_price_row
     (e.g. "Average", "Buy Buyout 100M") - see ScreenActions, which keeps
-    the same reading dict around for both. Missing price columns default
-    to 0, matching PriceInput's non-nullable int fields (parser.py already
-    parses OCR prices as int, not float); a missing "Notes" defaults to
-    "". `timestamp` mirrors append_price_row's parameter (mainly for
-    tests) - defaults to now (UTC, ISO 8601), unlike append_price_row's
-    local-time format, since this feeds an API rather than a hand-read
-    CSV."""
+    the same reading dict around for both. PriceInput's price fields are
+    non-nullable ints, but a missing/unreadable OCR reading is `None` here
+    (see ScreenActions.record_prices) - rather than silently coercing that
+    to 0 (a real, wrong value indistinguishable from an actual 0 reading),
+    this raises so the caller stops instead of reporting fabricated data to
+    Tracker. The CSV row from save_price_row is unaffected either way,
+    since it's written before this ever runs - only the Tracker post is
+    skipped. A missing "Notes" still defaults to "". `timestamp` mirrors
+    append_price_row's parameter (mainly for tests) - defaults to now
+    (UTC, ISO 8601), unlike append_price_row's local-time format, since
+    this feeds an API rather than a hand-read CSV."""
+    missing = [column for column in _FIELD_MAP if row.get(column) is None]
+    if missing:
+        message = (
+            "Refusing to post price row to Tracker - missing/unreadable "
+            f"price(s): {', '.join(missing)} (would otherwise be sent as a "
+            "fabricated 0)"
+        )
+        print(message, file=sys.stderr, flush=True)
+        raise ValueError(message)
     if timestamp is None:
         timestamp = datetime.now(timezone.utc).isoformat()
     price = {"datetime": timestamp, "notes": row.get("Notes") or ""}
     for column, field in _FIELD_MAP.items():
-        value = row.get(column)
-        price[field] = int(value) if value is not None else 0
+        price[field] = int(row[column])
     return {"query": RECORD_PRICE_MUTATION, "variables": {"price": price}}
 
 
