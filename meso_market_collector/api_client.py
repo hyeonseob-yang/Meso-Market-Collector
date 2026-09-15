@@ -11,7 +11,6 @@ PriceInput type and mutation this targets.
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timezone
 
 import requests
 
@@ -36,7 +35,7 @@ _FIELD_MAP = {
 }
 
 
-def build_price_payload(row: dict[str, int | None], timestamp: str | None = None) -> dict:
+def build_price_payload(row: dict[str, int | None]) -> dict:
     """Build the GraphQL request body for recording one collected price
     row. `row` uses the same wide-row keys as storage.append_price_row
     (e.g. "Average", "Buy Buyout 100M") - see ScreenActions, which keeps
@@ -47,10 +46,11 @@ def build_price_payload(row: dict[str, int | None], timestamp: str | None = None
     this raises so the caller stops instead of reporting fabricated data to
     Tracker. The CSV row from save_price_row is unaffected either way,
     since it's written before this ever runs - only the Tracker post is
-    skipped. A missing "Notes" still defaults to "". `timestamp` mirrors
-    append_price_row's parameter (mainly for tests) - defaults to now
-    (UTC, ISO 8601), unlike append_price_row's local-time format, since
-    this feeds an API rather than a hand-read CSV."""
+    skipped. A missing "Notes" still defaults to "". No timestamp is sent -
+    PriceInput has no `datetime` field; Tracker stamps `occurred_at` itself
+    at insert time (Meso-Market-Tracker/backend/schema.py's record_price),
+    since the Collector is its only writer and there's nothing to gain from
+    trusting a client clock over the server's own."""
     missing = [column for column in _FIELD_MAP if row.get(column) is None]
     if missing:
         message = (
@@ -60,9 +60,7 @@ def build_price_payload(row: dict[str, int | None], timestamp: str | None = None
         )
         print(message, file=sys.stderr, flush=True)
         raise ValueError(message)
-    if timestamp is None:
-        timestamp = datetime.now(timezone.utc).isoformat()
-    price = {"datetime": timestamp, "notes": row.get("Notes") or ""}
+    price = {"notes": row.get("Notes") or ""}
     for column, field in _FIELD_MAP.items():
         price[field] = int(row[column])
     return {"query": RECORD_PRICE_MUTATION, "variables": {"price": price}}
@@ -86,7 +84,10 @@ def post_price_row(row: dict[str, int | None], url: str | None = None, timeout: 
         message = f"Tracker rejected the price row - GraphQL errors: {errors}"
         print(message, file=sys.stderr, flush=True)
         raise ValueError(message)
-    if not body.get("data", {}).get("recordPrice"):
+    # record_price returns the new row's id as a String (Meso-Market-Tracker/
+    # backend/schema.py) - a missing/empty id means it didn't actually record.
+    price_id = body.get("data", {}).get("recordPrice")
+    if not price_id:
         message = f"Tracker did not confirm the price row was recorded - response: {body!r}"
         print(message, file=sys.stderr, flush=True)
         raise ValueError(message)
