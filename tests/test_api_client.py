@@ -1,6 +1,9 @@
-import pytest
+from unittest.mock import MagicMock, patch
 
-from meso_market_collector.api_client import RECORD_PRICE_MUTATION, build_price_payload
+import pytest
+import requests
+
+from meso_market_collector.api_client import RECORD_PRICE_MUTATION, build_price_payload, post_price_row
 
 # A fully-read row - every price field present, as record_prices leaves it
 # when OCR succeeds on all of them.
@@ -95,3 +98,67 @@ def test_build_price_payload_defaults_timestamp_to_now():
     payload = build_price_payload(COMPLETE_ROW)
 
     assert payload["variables"]["price"]["datetime"]
+
+
+def _fake_response(body, raise_for_status_error=None):
+    response = MagicMock()
+    response.json.return_value = body
+    response.raise_for_status.side_effect = raise_for_status_error
+    return response
+
+
+@patch("meso_market_collector.api_client.requests.post")
+def test_post_price_row_succeeds_when_recordPrice_confirmed(mock_post):
+    mock_post.return_value = _fake_response({"data": {"recordPrice": True}})
+
+    post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql")  # must not raise
+
+    args, kwargs = mock_post.call_args
+    assert args[0] == "https://tracker.example/graphql"
+    assert kwargs["json"]["variables"]["price"]["average"] == COMPLETE_ROW["Average"]
+
+
+@patch("meso_market_collector.api_client.requests.post")
+def test_post_price_row_raises_on_graphql_errors(mock_post, capsys):
+    # HTTP 200 (raise_for_status doesn't fire) but the body carries a
+    # GraphQL-level error - the exact case that slipped through silently
+    # before this check existed (caught via CloudWatch, not the Collector).
+    mock_post.return_value = _fake_response(
+        {"errors": [{"message": "average must be a positive integer"}], "data": None}
+    )
+
+    with pytest.raises(ValueError, match="average must be a positive integer"):
+        post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql")
+
+    assert "average must be a positive integer" in capsys.readouterr().err
+
+
+@patch("meso_market_collector.api_client.requests.post")
+def test_post_price_row_raises_when_recordPrice_not_confirmed(mock_post):
+    # No `errors`, but the mutation didn't actually report success either -
+    # still shouldn't be treated as a successful write.
+    mock_post.return_value = _fake_response({"data": {"recordPrice": False}})
+
+    with pytest.raises(ValueError, match="did not confirm"):
+        post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql")
+
+
+@patch("meso_market_collector.api_client.requests.post")
+def test_post_price_row_raises_when_data_missing_entirely(mock_post):
+    mock_post.return_value = _fake_response({})
+
+    with pytest.raises(ValueError, match="did not confirm"):
+        post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql")
+
+
+@patch("meso_market_collector.api_client.requests.post")
+def test_post_price_row_still_propagates_http_level_errors(mock_post):
+    # raise_for_status() must still fire, and fire before any body parsing -
+    # a transport-level failure shouldn't be masked by the new checks below it.
+    mock_post.return_value = _fake_response(
+        {"unreachable": "body should never be read"},
+        raise_for_status_error=requests.HTTPError("500 Server Error"),
+    )
+
+    with pytest.raises(requests.HTTPError):
+        post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql")

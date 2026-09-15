@@ -1,8 +1,9 @@
 """Reporting a collected price row to Meso-Market-Tracker's backend.
 
-`build_price_payload` is pure and testable. `post_price_row` does the actual
-network call and is untested directly (needs a reachable server), by design
-- same split as screen_actions.py vs routine.py.
+`build_price_payload` is pure and directly testable. `post_price_row`'s
+response handling (raising on a GraphQL-level error or an unconfirmed
+write, not just an HTTP-level one - see its body-parsing below) is covered
+too, with `requests.post` mocked; no test here makes a real network call.
 
 See the sibling Meso-Market-Tracker project's backend/schema.py for the
 PriceInput type and mutation this targets.
