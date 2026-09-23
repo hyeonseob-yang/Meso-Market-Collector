@@ -22,6 +22,12 @@ mutation RecordPrice($price: PriceInput!) {
 }
 """
 
+# String values a broken resolver could return in place of a real id - e.g.
+# `str(price_id)` on a Tracker-side insert that itself returned `None` gives
+# the *string* "None", which is non-empty and so would otherwise pass a bare
+# truthiness check (see the incident this guards against in post_price_row).
+_PLACEHOLDER_IDS = {"none", "null", "nan", "undefined"}
+
 # Maps our wide-row column names (storage.PRICE_ROW_FIELDNAMES) to the
 # Tracker's PriceInput field names (Meso-Market-Tracker/backend/schema.py).
 _FIELD_MAP = {
@@ -85,9 +91,10 @@ def post_price_row(row: dict[str, int | None], url: str | None = None, timeout: 
         print(message, file=sys.stderr, flush=True)
         raise ValueError(message)
     # record_price returns the new row's id as a String (Meso-Market-Tracker/
-    # backend/schema.py) - a missing/empty id means it didn't actually record.
+    # backend/schema.py) - a missing/empty id, or a placeholder like the
+    # string "None", means it didn't actually record.
     price_id = body.get("data", {}).get("recordPrice")
-    if not price_id:
+    if not price_id or str(price_id).strip().lower() in _PLACEHOLDER_IDS:
         message = f"Tracker did not confirm the price row was recorded - response: {body!r}"
         print(message, file=sys.stderr, flush=True)
         raise ValueError(message)

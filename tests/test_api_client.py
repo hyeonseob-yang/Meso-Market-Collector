@@ -160,6 +160,19 @@ def test_post_price_row_raises_when_data_missing_entirely(mock_post):
 
 
 @patch("meso_market_collector.api_client.requests.post")
+@pytest.mark.parametrize("placeholder", ["None", "null", "NaN", "undefined", "  none  "])
+def test_post_price_row_raises_on_placeholder_id(mock_post, placeholder):
+    # Real incident: a Tracker-side insert that itself returned `None` had
+    # its resolver do `str(price_id)`, producing the literal string "None" -
+    # non-empty, so a bare truthiness check let it through as a false
+    # success. Covers case and surrounding whitespace too.
+    mock_post.return_value = _fake_response({"data": {"recordPrice": placeholder}})
+
+    with pytest.raises(ValueError, match="did not confirm"):
+        post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql")
+
+
+@patch("meso_market_collector.api_client.requests.post")
 def test_post_price_row_still_propagates_http_level_errors(mock_post):
     # raise_for_status() must still fire, and fire before any body parsing -
     # a transport-level failure shouldn't be masked by the new checks below it.
