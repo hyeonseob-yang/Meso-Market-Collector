@@ -140,15 +140,33 @@ separate Linux/WSL venv needed for that anymore.
    sequence, fully automated. Cleanup runs both close tasks first and waits
    for the processes to actually exit (`wait_for_process_exit`), so a
    leftover game/launcher — which the launch task's `nxl://` link would
-   otherwise be handed to, and the likely cause of an occasional UAC prompt at
-   launch — never
-   carries into a run. (This also closes a launcher you opened yourself.)
-   The launcher starts the game already signed in, so login is
-   just a click on the Log In button, followed by Quick Move, Meso Market,
-   and the Buy tab. Each tab is confirmed by a `wait_for_image` checkpoint
-   before recording, which prints what it's waiting for so you can finish
-   a step by hand if a click ever misses. Edit it if the actual flow
-   differs.
+   otherwise be handed to, and the likely cause of an occasional UAC
+   prompt at launch — never carries into a run. (This also closes a
+   launcher you opened yourself.) The launcher starts the game already
+   signed in, so login is just a click on the Log In button, followed by
+   Quick Move, Meso Market, and the Buy tab. Each tab is confirmed by a
+   `wait_for_image` checkpoint before recording, which prints what it's
+   waiting for so you can finish a step by hand if a click ever misses.
+   Edit it if the actual flow differs.
+
+7. **Session task.** The collector itself has to run elevated (see
+   "Simulated input in the game" below), so it gets a Scheduled Task too —
+   then any normal shell (or a schedule) can start it without a UAC
+   prompt. One-time setup, from an **Administrator** PowerShell in the
+   repo root:
+   ```powershell
+   $repo = (Get-Location).Path
+   $action = New-ScheduledTaskAction -Execute "cmd.exe" -WorkingDirectory $repo -Argument "/c `"`"$repo\.venv\Scripts\python.exe`" -u -m meso_market_collector.session --task-name MesoMarketCollector_MapleStoryViaLauncher >> data\session.log 2>&1`""
+   $principal = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$env:USERNAME" -LogonType Interactive -RunLevel Highest
+   $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date)
+   Register-ScheduledTask -TaskName "MesoMarketCollector_Session" -Action $action -Principal $principal -Trigger $trigger -Force
+   ```
+   The working directory matters — the default `--routine` path
+   (`config/routine.json`) is relative to it. Output is appended to
+   `data/session.log` rather than shown, since the task's console window
+   closes as soon as the run ends (taking any error with it). To run it on
+   a schedule, swap the `-Once` trigger for e.g.
+   `New-ScheduledTaskTrigger -Daily -At 9am`.
 
 ### Simulated input in the game
 
@@ -197,17 +215,26 @@ leaving the rest running. So both "close" steps are process-kill tasks.
 
 ## Run the full session (launch game, log in, record both tabs, close)
 
-From an **Administrator** PowerShell (see "Simulated input in the game"
-above), with the Windows Python venv set up above, run where you can see
-its output. It runs start to finish unattended; if a click ever misses,
-the routine prints which screen it's waiting for, and you can get there by
-hand for it to continue:
+From any shell, via the session task (Configure step 7):
+
+```powershell
+schtasks /run /tn "MesoMarketCollector_Session"
+```
+
+It runs start to finish unattended, appending its output to
+`data/session.log`. If a click ever misses, the routine logs which screen
+it's waiting for, and you have a few minutes to get there by hand for it
+to continue.
+
+To watch the output live instead (e.g. while debugging), run it directly
+from an **Administrator** PowerShell (see "Simulated input in the game"
+above) with the Windows Python venv:
 
 ```powershell
 python -m meso_market_collector.session --task-name "MesoMarketCollector_MapleStoryViaLauncher"
 ```
 
-The task name is passed in each run rather than stored in config. Recorded
+The launch task name is passed in each run rather than stored in config. Recorded
 prices are read via OCR
 ([`meso_market_collector/parser.py`](meso_market_collector/parser.py),
 using [pytesseract](https://github.com/madmaze/pytesseract)) and appended

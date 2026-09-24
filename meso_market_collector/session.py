@@ -37,7 +37,8 @@ def main() -> None:
     if not ctypes.windll.shell32.IsUserAnAdmin():
         print(
             "WARNING: not running elevated - simulated clicks/keys won't "
-            "reach the game. Run from an Administrator PowerShell.",
+            "reach the game. Run via the MesoMarketCollector_Session "
+            "scheduled task, or from an Administrator PowerShell.",
             flush=True,
         )
 
