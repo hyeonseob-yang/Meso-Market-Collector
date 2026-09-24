@@ -42,23 +42,6 @@ run `Set-ExecutionPolicy -Scope Process RemoteSigned` first and retry.)
 the whole non-screen test suite also just runs there with `pytest` — no
 separate Linux/WSL venv needed for that anymore.
 
-<details>
-<summary>Editing from WSL against the same repo instead (not recommended, but supported)</summary>
-
-If you'd rather edit from WSL (or another Linux shell) pointed at this same
-checkout via `\\wsl.localhost\...`/`\\wsl$\...`, rather than a separate
-native-Windows clone, name the two venvs differently — `.venv-windows` for
-the one created by Windows Python, plain `.venv` for the one created by
-`python3 -m venv .venv` on the Linux side. Their layouts aren't compatible
-(`Scripts/` vs. `bin/`), so giving them the same folder name breaks
-whichever one gets created second. This split adds real friction (slower
-cross-filesystem access either direction, `git config --global
---add safe.directory` needed for git to trust the WSL-side repo from
-Windows) for no benefit specific to this project - the plain single-OS
-setup above is simpler if you don't have another reason to need WSL here.
-
-</details>
-
 ## Configure
 
 1. **Region boxes.** The 4 Sell-tab and 4 Buy-tab price boxes sit at the
@@ -169,23 +152,6 @@ closing:
   `__COMPAT_LAYER=RunAsInvoker` environment variable set) still triggered a
   UAC prompt with no way found to suppress it — the launcher requests
   elevation for it explicitly, which overrides both approaches.
-- Once actually logged in, **simulated mouse clicks and keyboard shortcuts
-  (Alt+F4) don't register in the game client at all** — found while trying
-  to click Log In/Quick Move/Meso Market and to close via Alt+F4. Confirmed
-  it wasn't a focus or coordinate problem (explicit window activation,
-  verified-correct click coordinates, `pydirectinput` as an alternative
-  input method, windowed vs. fullscreen mode — none of it changed the
-  result). The same symptom (mouse position updates, hover-highlighting
-  works, but click/key state never registers) reproduces identically in
-  Terraria, an unrelated game. Attempts to get synthetic input registering
-  past this anyway - a kernel-level input driver (Interception), direct
-  calls to the legacy `mouse_event`/`keybd_event` Win32 APIs - are blocked
-  by this coding environment's own automated safety controls, independent
-  of anything decided in this project. That's the actual, complete reason
-  these steps stay manual. Directly killing the elevated game process also
-  fails the same way `Stop-Process` fails on any elevated process from a
-  non-elevated caller (`Access is denied`) — just normal Windows privilege
-  separation, unrelated to the input-registration issue above.
 
 A Scheduled Task configured with `RunLevel: Highest` sidesteps all of
 this by never asking the game to accept simulated input as if it were
@@ -207,20 +173,6 @@ being started by our elevated launch task) while others don't — a plain
 `taskkill`/`Stop-Process` only ever gets the non-elevated ones, silently
 leaving the rest running. So both "close" steps are process-kill tasks,
 even though only one of the two targets is actually input-resistant.
-
-**What's still automatable vs. not:** launching, reaching the login screen,
-capturing price regions (pure screenshot reads, no input needed), and
-closing are all automatable. Logging in and navigating the actual game
-world (Quick Move, Meso Market, tab switching) needs real input, so the
-routine polls for a screenshot match instead of trying to click through
-those steps — `wait_for_image` with a `message` prints what to do, then
-keeps checking the screen until it sees you've actually gotten there
-(no Enter needed; see `assets/templates/README.md` for the `_active`
-template images this needs). So a run looks like: script launches the
-game, waits for the login screen, prints "log in and navigate to the Sell
-tab" → **you** do that → script notices and captures Sell prices, prints
-"click the Buy tab" → **you** do that → script notices, captures Buy
-prices, closes the game, and closes the launcher.
 
 ## Run the full session (launch game, log in, record both tabs, close)
 
