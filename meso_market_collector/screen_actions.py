@@ -83,6 +83,27 @@ class ScreenActions:
         # works regardless of whether this script itself is elevated.
         self._run_scheduled_task(task_name)
 
+    def wait_for_process_exit(self, processes: list[str]) -> None:
+        # schtasks /run returns as soon as a task starts, not when it's
+        # done - so after a kill task, poll until the processes are really
+        # gone. tasklist sees elevated processes' names even from a
+        # non-elevated caller (it just can't touch them).
+        deadline = time.monotonic() + self.timeout
+        while time.monotonic() < deadline:
+            running = [p for p in processes if self._is_running(p)]
+            if not running:
+                return
+            time.sleep(self.poll_interval)
+        raise TimeoutError(f"Timed out waiting for {running} to exit")
+
+    def _is_running(self, image_name: str) -> bool:
+        out = subprocess.run(
+            ["tasklist", "/FO", "CSV", "/NH", "/FI", f"IMAGENAME eq {image_name}"],
+            capture_output=True, text=True, check=True,
+        ).stdout
+        # No match prints an "INFO: ..." line instead of a CSV row.
+        return f'"{image_name.lower()}"' in out.lower()
+
     def wait_for_image(
         self, template: str, message: str | None = None, confidence: float | None = None
     ):

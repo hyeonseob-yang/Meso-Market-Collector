@@ -41,6 +41,9 @@ class FakeActions:
     def run_task(self, task_name):
         self.calls.append(("run_task", task_name))
 
+    def wait_for_process_exit(self, processes):
+        self.calls.append(("wait_for_process_exit", tuple(processes)))
+
     def wait_for_user(self, message):
         self.calls.append(("wait_for_user", message))
 
@@ -229,6 +232,18 @@ def test_run_routine_dispatches_wait_for_image_with_confidence():
     )
 
     assert actions.calls == [("wait_for_image", "login_button.png", None, 0.986)]
+
+
+def test_run_routine_dispatches_wait_for_process_exit():
+    actions = FakeActions()
+
+    run_routine(
+        [Step(action="wait_for_process_exit", processes=["MapleStory.exe", "nexon_client.exe"])],
+        task_name="x",
+        actions=actions,
+    )
+
+    assert actions.calls == [("wait_for_process_exit", ("MapleStory.exe", "nexon_client.exe"))]
 
 
 def test_run_routine_dispatches_wait_for_user():

@@ -25,6 +25,7 @@ class Step:
     message: str | None = None
     max_age_days: float | None = None
     confidence: float | None = None
+    processes: list[str] | None = None
 
 
 def load_steps(path: Path) -> list[Step]:
@@ -49,6 +50,7 @@ class GameActions(Protocol):
     def hotkey(self, keys: list[str]) -> None: ...
     def focus_window(self, window_title: str) -> None: ...
     def run_task(self, task_name: str) -> None: ...
+    def wait_for_process_exit(self, processes: list[str]) -> None: ...
     def wait_for_user(self, message: str) -> None: ...
     def save_price_row(self) -> None: ...
     def post_price_row(self) -> None: ...
@@ -77,6 +79,8 @@ def run_routine(steps: list[Step], task_name: str, actions: GameActions) -> None
             actions.focus_window(step.window_title)
         elif step.action == "run_task":
             actions.run_task(step.task_name)
+        elif step.action == "wait_for_process_exit":
+            actions.wait_for_process_exit(step.processes)
         elif step.action == "wait_for_user":
             actions.wait_for_user(step.message)
         elif step.action == "save_price_row":

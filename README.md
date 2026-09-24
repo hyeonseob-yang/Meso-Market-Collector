@@ -136,8 +136,14 @@ separate Linux/WSL venv needed for that anymore.
    ones are used and how to recapture them.
 
 6. **Routine steps.** [`config/routine.json`](config/routine.json) holds
-   the ordered launch → login → navigate → record → close sequence, fully
-   automated: the launcher starts the game already signed in, so login is
+   the ordered cleanup → launch → login → navigate → record → close
+   sequence, fully automated. Cleanup runs both close tasks first and waits
+   for the processes to actually exit (`wait_for_process_exit`), so a
+   leftover game/launcher — which the launch task's `nxl://` link would
+   otherwise be handed to, and the likely cause of an occasional UAC prompt at
+   launch — never
+   carries into a run. (This also closes a launcher you opened yourself.)
+   The launcher starts the game already signed in, so login is
    just a click on the Log In button, followed by Quick Move, Meso Market,
    and the Buy tab. Each tab is confirmed by a `wait_for_image` checkpoint
    before recording, which prints what it's waiting for so you can finish
