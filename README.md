@@ -130,19 +130,33 @@ separate Linux/WSL venv needed for that anymore.
    `schtasks /run /tn "MesoMarketCollector_KillNexonLauncher"` — the count
    should drop to zero, not just decrease.
 
-5. **Template image.** Only `login_button.png` is still used — to confirm
-   the login screen has actually loaded before handing off to you (see
-   [`assets/templates/README.md`](assets/templates/README.md)). The others
-   (Quick Move, Meso Market, Buy tab, exit-confirm) were used to click
-   through those steps automatically; that doesn't work (see below) so
-   they're no longer referenced by the routine, though the files are still
-   there in case that changes.
+5. **Template images.** The routine finds what to click, and confirms
+   where it is, by matching template screenshots — see
+   [`assets/templates/README.md`](assets/templates/README.md) for which
+   ones are used and how to recapture them.
 
 6. **Routine steps.** [`config/routine.json`](config/routine.json) holds
-   the ordered launch → login → navigate → record → close sequence,
-   including `wait_for_image` polling checkpoints where a real click is
-   needed (see "What's still automatable" below). Edit it if the actual
+   the ordered launch → login → navigate → record → close sequence. Login
+   is the only manual step (a `wait_for_image` checkpoint that prints what
+   to do and waits for the Quick Move button to appear); Quick Move, Meso
+   Market, and the Buy tab are clicked automatically. Edit it if the actual
    flow differs.
+
+### Simulated input in the game
+
+Two things have to be true for simulated clicks/keys to register in the
+game client (confirmed in both MapleStory and Terraria):
+
+- **Every click/key is held, not tapped.** Games poll input state once per
+  frame; PyAutoGUI's `click()`/`press()` send down and up back to back, so
+  the whole press falls between two polls and is never seen (mouse
+  *movement* still registers, being continuous — which is what made this
+  look like the game was filtering input). `ScreenActions` holds each
+  press for `hold_seconds` (default 50 ms) instead.
+- **The collector runs elevated** (MapleStory only). The game runs elevated
+  via the launch task, and Windows silently drops input sent to an
+  elevated window from a non-elevated process. `session.py` prints a
+  warning at startup if it isn't elevated.
 
 ### Why a Scheduled Task, not a direct launch/close?
 
@@ -165,21 +179,22 @@ management, not simulated input anything has to interpret at all.
 
 There are two close tasks, not one — closing the *launcher* needed the
 same treatment as the game, which was initially surprising since the
-launcher's own UI (e.g. its Play button) does respond fine to simulated
-clicks, unlike the game. The reason: the launcher is a multi-process
+launcher's own UI (e.g. its Play button) responds fine to simulated
+clicks. The reason: the launcher is a multi-process
 Electron-style app, and while its main window accepts clicks normally,
 some of its background/helper processes run elevated (inherited from
 being started by our elevated launch task) while others don't — a plain
 `taskkill`/`Stop-Process` only ever gets the non-elevated ones, silently
-leaving the rest running. So both "close" steps are process-kill tasks,
-even though only one of the two targets is actually input-resistant.
+leaving the rest running. So both "close" steps are process-kill tasks.
 
 ## Run the full session (launch game, log in, record both tabs, close)
 
-From the Windows Python venv set up above, run where you can see its
-output (it prints what to do at each manual step, then polls the screen
-and continues on its own once it detects you've done it — no keypress
-needed, but you do need to actually be at the game to do the clicking):
+From an **Administrator** PowerShell (see "Simulated input in the game"
+above), with the Windows Python venv set up above, run where you can see
+its output. It prints when you need to log in, then polls the screen and
+continues on its own once it detects you have — no keypress needed. The
+navigation after that is automatic; if a click ever misses, the routine
+tells you which tab it's waiting for, and you can get there by hand:
 
 ```powershell
 python -m meso_market_collector.session --task-name "MesoMarketCollector_MapleStoryViaLauncher"
