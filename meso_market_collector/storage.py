@@ -77,7 +77,7 @@ def append_region_reading(item: str, price: float | None, csv_path: Path = REGIO
 
 
 def save_snapshot(item: str, image: Image.Image, snapshot_dir: Path = DATA_DIR / "snapshots") -> Path:
-    """Save the raw captured region, useful whenever OCR can't read it."""
+    """Save the raw captured region, for checking OCR against what it read."""
     snapshot_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
     path = snapshot_dir / f"{item}_{timestamp}.png"

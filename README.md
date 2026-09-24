@@ -246,9 +246,12 @@ always left blank for you to fill in by hand). `Average` comes from the
 `meso_average` box, which reads identically regardless of which tab is
 showing — confirmed empirically, not just assumed — so it's captured once
 per row rather than separately for each tab. If OCR can't cleanly read a
-box (blank, or anything that isn't purely digits), that cell is left blank
-and the raw crop is saved to `data/snapshots/` instead, so no data is
-silently lost or wrong. The same row is then POSTed to the sibling
+box (blank, or anything that isn't purely digits), that cell is left
+blank. Every box's raw crop is saved to `data/snapshots/` each run, named
+with what OCR read (e.g. `Average_406_<timestamp>.png`, or
+`..._unreadable_...`) — a misread digit (3 vs 6, say) still parses as a
+valid number, so comparing a crop to its filename is the only way to
+catch one. The same row is then POSTed to the sibling
 [Meso-Market-Tracker](../Meso-Market-Tracker) project's GraphQL API
 (`post_price_row` step, right after `save_price_row`, in
 `config/routine.json`) — see

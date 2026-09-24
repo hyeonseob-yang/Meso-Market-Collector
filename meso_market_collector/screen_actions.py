@@ -163,8 +163,11 @@ class ScreenActions:
             region = regions_by_name[name]
             image = capture_region(region)
             price = parse_price(image)
-            if price is None:
-                save_snapshot(label, image)
+            # Saved every time, not just when parsing fails, with the OCR
+            # result in the filename - a misread digit (e.g. 3 vs 6) still
+            # parses fine, so the only way to catch one is to compare the
+            # crop against what was recorded.
+            save_snapshot(f"{label}_{price if price is not None else 'unreadable'}", image)
             self._readings[label] = price
 
     def save_price_row(self) -> None:
