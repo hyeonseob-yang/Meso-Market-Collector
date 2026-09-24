@@ -136,11 +136,13 @@ separate Linux/WSL venv needed for that anymore.
    ones are used and how to recapture them.
 
 6. **Routine steps.** [`config/routine.json`](config/routine.json) holds
-   the ordered launch → login → navigate → record → close sequence. Login
-   is the only manual step (a `wait_for_image` checkpoint that prints what
-   to do and waits for the Quick Move button to appear); Quick Move, Meso
-   Market, and the Buy tab are clicked automatically. Edit it if the actual
-   flow differs.
+   the ordered launch → login → navigate → record → close sequence, fully
+   automated: the launcher starts the game already signed in, so login is
+   just a click on the Log In button, followed by Quick Move, Meso Market,
+   and the Buy tab. Each tab is confirmed by a `wait_for_image` checkpoint
+   before recording, which prints what it's waiting for so you can finish
+   a step by hand if a click ever misses. Edit it if the actual flow
+   differs.
 
 ### Simulated input in the game
 
@@ -191,10 +193,9 @@ leaving the rest running. So both "close" steps are process-kill tasks.
 
 From an **Administrator** PowerShell (see "Simulated input in the game"
 above), with the Windows Python venv set up above, run where you can see
-its output. It prints when you need to log in, then polls the screen and
-continues on its own once it detects you have — no keypress needed. The
-navigation after that is automatic; if a click ever misses, the routine
-tells you which tab it's waiting for, and you can get there by hand:
+its output. It runs start to finish unattended; if a click ever misses,
+the routine prints which screen it's waiting for, and you can get there by
+hand for it to continue:
 
 ```powershell
 python -m meso_market_collector.session --task-name "MesoMarketCollector_MapleStoryViaLauncher"

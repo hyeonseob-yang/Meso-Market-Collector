@@ -10,8 +10,8 @@ Used by `config/routine.json`:
 
 | Filename | What to crop | Used to |
 |---|---|---|
-| `login_button.png` | The in-game "Log In" button | Detect the login screen has loaded |
-| `quick_move_button.png` | The Quick Move button | Detect you've logged in, then click it |
+| `login_button.png` | The in-game "Log In" button, in its enabled state | Detect the login screen has loaded, then click it |
+| `quick_move_button.png` | The Quick Move button | Detect you're in the game world, then click it |
 | `meso_market_icon.png` | The Meso Market entry in the Quick Move menu | Click it |
 | `sell_mesos_active.png` | Something visible only when the Sell Mesos tab is active (e.g. the tab in its selected/highlighted state) | Confirm the Sell tab is showing before recording |
 | `buy_mesos_tab.png` | The Buy Mesos tab (inactive state) | Click it |
