@@ -9,6 +9,7 @@ isn't used here.
 from __future__ import annotations
 
 import argparse
+import ctypes
 
 from .routine import load_steps, run_routine
 from .screen_actions import ScreenActions
@@ -29,6 +30,16 @@ def main() -> None:
         help=f"Path to the routine step list (default: {DEFAULT_ROUTINE_PATH})",
     )
     args = parser.parse_args()
+
+    # The game runs elevated (via the launch task), and Windows silently
+    # drops simulated input sent to an elevated window from a
+    # non-elevated process - clicks/keys would just do nothing, no error.
+    if not ctypes.windll.shell32.IsUserAnAdmin():
+        print(
+            "WARNING: not running elevated - simulated clicks/keys won't "
+            "reach the game. Run from an Administrator PowerShell.",
+            flush=True,
+        )
 
     steps = load_steps(args.routine)
     actions = ScreenActions()

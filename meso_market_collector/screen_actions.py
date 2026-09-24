@@ -36,12 +36,14 @@ class ScreenActions:
         stable_seconds: float = 1.0,
         confidence: float = 0.8,
         templates_dir: Path = TEMPLATES_DIR,
+        hold_seconds: float = 0.05,
     ):
         self.poll_interval = poll_interval
         self.timeout = timeout
         self.stable_seconds = stable_seconds
         self.confidence = confidence
         self.templates_dir = templates_dir
+        self.hold_seconds = hold_seconds
         self._readings: dict[str, int | None] = {}
         self._last_saved_row: dict[str, int | None] = {}
 
@@ -76,12 +78,9 @@ class ScreenActions:
         # Generic version of the same mechanism as launch() - runs any
         # other pre-configured Scheduled Task. Used to close the game: the
         # process runs elevated (from launch's task), so a normal-integrity
-        # taskkill/Stop-Process can't touch it (Access is denied), and
-        # simulated input (Alt+F4, clicking an exit-confirm dialog) doesn't
-        # register in the game client at all - same as every other in-game
-        # click, this input filtering doesn't distinguish "close the game"
-        # from any other click. A second elevated task (e.g. running
-        # `taskkill /F /IM MapleStory.exe`) sidesteps both problems at once.
+        # taskkill/Stop-Process can't touch it (Access is denied). A second
+        # elevated task (e.g. running `taskkill /F /IM MapleStory.exe`)
+        # works regardless of whether this script itself is elevated.
         self._run_scheduled_task(task_name)
 
     def wait_for_image(
@@ -117,8 +116,15 @@ class ScreenActions:
         raise TimeoutError(f"Timed out waiting for {template!r} to stabilize")
 
     def click_image(self, template: str) -> None:
+        # Held rather than pyautogui.click(): games poll input state once
+        # per frame, and click()'s back-to-back down/up falls between polls
+        # and never registers (confirmed in both Terraria and MapleStory -
+        # mouse movement still registers either way, since it's continuous).
         box = self.wait_for_image(template)
-        pyautogui.click(pyautogui.center(box))
+        pyautogui.moveTo(pyautogui.center(box))
+        pyautogui.mouseDown(_pause=False)
+        time.sleep(self.hold_seconds)
+        pyautogui.mouseUp()
 
     def wait_and_click_image(self, template: str) -> None:
         self.click_image(template)
@@ -156,19 +162,21 @@ class ScreenActions:
         clear_old_snapshots(max_age_days)
 
     def press_key(self, key: str) -> None:
-        pyautogui.press(key)
+        # Held for the same reason as click_image - pyautogui.press() taps
+        # too briefly for the game to see.
+        self.hotkey([key])
 
     def hotkey(self, keys: list[str]) -> None:
-        pyautogui.hotkey(*keys)
+        for key in keys:
+            pyautogui.keyDown(key, _pause=False)
+        time.sleep(self.hold_seconds)
+        for key in reversed(keys):
+            pyautogui.keyUp(key, _pause=False)
+        time.sleep(pyautogui.PAUSE)
 
     def wait_for_user(self, message: str) -> None:
-        # Clicks and key presses don't register inside the actual game
-        # client (confirmed across both MapleStory and Terraria - not
-        # something worth trying to work around further, see README).
-        # Everything that needs a real click inside the game itself is a
-        # manual checkpoint: print what to do, block until Enter confirms
-        # it's done, then resume the automated parts (screenshot capture,
-        # scheduled-task launch/close) that don't need simulated input.
+        # A manual checkpoint: print what to do, block until Enter confirms
+        # it's done, then resume the automated parts.
         input(f"\n{message}\n(press Enter to continue) ")
 
     def focus_window(self, window_title: str) -> None:
