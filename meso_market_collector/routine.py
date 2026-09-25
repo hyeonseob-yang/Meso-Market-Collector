@@ -26,6 +26,9 @@ class Step:
     max_age_days: float | None = None
     confidence: float | None = None
     processes: list[str] | None = None
+    until: str | None = None
+    attempts: int | None = None
+    retry_seconds: float | None = None
 
 
 def load_steps(path: Path) -> list[Step]:
@@ -44,7 +47,16 @@ class GameActions(Protocol):
         self, template: str, message: str | None = None, confidence: float | None = None
     ) -> None: ...
     def wait_for_stable_image(self, template: str) -> None: ...
-    def click_image(self, template: str) -> None: ...
+    def click_image(self, template: str, confidence: float | None = None) -> None: ...
+    def click_until_image(
+        self,
+        template: str,
+        until: str,
+        message: str | None = None,
+        confidence: float | None = None,
+        attempts: int = 3,
+        retry_seconds: float = 20.0,
+    ) -> None: ...
     def record_prices(self, regions: dict[str, str]) -> None: ...
     def press_key(self, key: str) -> None: ...
     def hotkey(self, keys: list[str]) -> None: ...
@@ -69,6 +81,17 @@ def run_routine(steps: list[Step], task_name: str, actions: GameActions) -> None
             actions.wait_for_stable_image(step.template)
         elif step.action == "click_image":
             actions.click_image(step.template)
+        elif step.action == "click_until_image":
+            # Only pass the tuning knobs a step actually sets, so the
+            # implementation's own defaults apply otherwise.
+            tuning = {
+                name: value
+                for name, value in (("attempts", step.attempts), ("retry_seconds", step.retry_seconds))
+                if value is not None
+            }
+            actions.click_until_image(
+                step.template, step.until, step.message, step.confidence, **tuning
+            )
         elif step.action == "record_prices":
             actions.record_prices(step.regions)
         elif step.action == "press_key":

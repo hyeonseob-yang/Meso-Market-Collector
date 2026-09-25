@@ -23,8 +23,11 @@ class FakeActions:
     def wait_for_stable_image(self, template):
         self.calls.append(("wait_for_stable_image", template))
 
-    def click_image(self, template):
+    def click_image(self, template, confidence=None):
         self.calls.append(("click_image", template))
+
+    def click_until_image(self, template, until, message=None, confidence=None, **tuning):
+        self.calls.append(("click_until_image", template, until, message, confidence, tuning))
 
     def record_prices(self, regions):
         self.calls.append(("record_prices", dict(regions)))
@@ -232,6 +235,53 @@ def test_run_routine_dispatches_wait_for_image_with_confidence():
     )
 
     assert actions.calls == [("wait_for_image", "login_button.png", None, 0.986)]
+
+
+def test_run_routine_dispatches_click_until_image_with_defaults():
+    actions = FakeActions()
+
+    run_routine(
+        [Step(action="click_until_image", template="login_button.png", until="quick_move_button.png")],
+        task_name="x",
+        actions=actions,
+    )
+
+    # Unset attempts/retry_seconds aren't passed, so the implementation's
+    # own defaults apply.
+    assert actions.calls == [
+        ("click_until_image", "login_button.png", "quick_move_button.png", None, None, {})
+    ]
+
+
+def test_run_routine_dispatches_click_until_image_with_tuning():
+    actions = FakeActions()
+
+    run_routine(
+        [
+            Step(
+                action="click_until_image",
+                template="login_button.png",
+                until="quick_move_button.png",
+                message="click it by hand",
+                confidence=0.986,
+                attempts=5,
+                retry_seconds=10,
+            )
+        ],
+        task_name="x",
+        actions=actions,
+    )
+
+    assert actions.calls == [
+        (
+            "click_until_image",
+            "login_button.png",
+            "quick_move_button.png",
+            "click it by hand",
+            0.986,
+            {"attempts": 5, "retry_seconds": 10},
+        )
+    ]
 
 
 def test_run_routine_dispatches_wait_for_process_exit():

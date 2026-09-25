@@ -144,10 +144,15 @@ separate Linux/WSL venv needed for that anymore.
    prompt at launch — never carries into a run. (This also closes a
    launcher you opened yourself.) The launcher starts the game already
    signed in, so login is just a click on the Log In button, followed by
-   Quick Move, Meso Market, and the Buy tab. Each tab is confirmed by a
+   Quick Move, Meso Market, and the Buy tab. The Log In click is a
+   `click_until_image` step: if Quick Move hasn't appeared 20 seconds after
+   a click, it clicks again (up to 3 times) — the game sometimes ignores a
+   click while it's still getting ready. Each tab is confirmed by a
    `wait_for_image` checkpoint before recording, which prints what it's
-   waiting for so you can finish a step by hand if a click ever misses.
-   Edit it if the actual flow differs.
+   waiting for so you can finish a step by hand if a click ever misses. Any
+   wait that times out saves a full screenshot to `data/snapshots/`
+   (`timeout_<template>_<timestamp>.png`) so an unattended failure can be
+   diagnosed afterward. Edit it if the actual flow differs.
 
 7. **Session task.** The collector itself has to run elevated (see
    "Simulated input in the game" below), so it gets a Scheduled Task too —

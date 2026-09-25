@@ -109,13 +109,27 @@ class ScreenActions:
     ):
         if message:
             print(f"\n{message}\n(waiting for {template!r} to appear on screen...)", flush=True)
-        deadline = time.monotonic() + self.timeout
+        box = self._poll_for(template, self.timeout, confidence)
+        if box:
+            return box
+        self._save_timeout_screenshot(template)
+        raise TimeoutError(f"Timed out waiting for {template!r} to appear")
+
+    def _poll_for(self, template: str, seconds: float, confidence: float | None = None):
+        deadline = time.monotonic() + seconds
         while time.monotonic() < deadline:
             box = self._locate(template, confidence)
             if box:
                 return box
             time.sleep(self.poll_interval)
-        raise TimeoutError(f"Timed out waiting for {template!r} to appear")
+        return None
+
+    def _save_timeout_screenshot(self, template: str) -> None:
+        # A timeout means the screen wasn't what the routine expected - keep
+        # what it actually was, since an unattended run has no one watching.
+        # Lands in data/snapshots/, so clear_old_snapshots cleans it up too.
+        path = save_snapshot(f"timeout_{Path(template).stem}", pyautogui.screenshot())
+        print(f"Saved a screenshot of the timeout to {path}", flush=True)
 
     def wait_for_stable_image(self, template: str):
         """Wait until the template is found in the same place for
@@ -134,18 +148,49 @@ class ScreenActions:
             else:
                 stable_since = None
             time.sleep(self.poll_interval)
+        self._save_timeout_screenshot(template)
         raise TimeoutError(f"Timed out waiting for {template!r} to stabilize")
 
-    def click_image(self, template: str) -> None:
+    def click_image(self, template: str, confidence: float | None = None) -> None:
+        self._click_box(self.wait_for_image(template, confidence=confidence))
+
+    def _click_box(self, box) -> None:
         # Held rather than pyautogui.click(): games poll input state once
         # per frame, and click()'s back-to-back down/up falls between polls
         # and never registers (confirmed in both Terraria and MapleStory -
         # mouse movement still registers either way, since it's continuous).
-        box = self.wait_for_image(template)
         pyautogui.moveTo(pyautogui.center(box))
         pyautogui.mouseDown(_pause=False)
         time.sleep(self.hold_seconds)
         pyautogui.mouseUp()
+
+    def click_until_image(
+        self,
+        template: str,
+        until: str,
+        message: str | None = None,
+        confidence: float | None = None,
+        attempts: int = 3,
+        retry_seconds: float = 20.0,
+    ) -> None:
+        """Click `template`, then wait for `until` to appear - re-clicking
+        (if `template` is still showing) every `retry_seconds`, up to
+        `attempts` clicks in total, in case a click didn't take (e.g. the
+        game wasn't ready for input yet). After the last attempt, falls
+        back to a normal wait_for_image, printing `message` so someone can
+        finish the step by hand."""
+        self.click_image(template, confidence)
+        for _ in range(attempts - 1):
+            if self._poll_for(until, retry_seconds):
+                return
+            box = self._locate(template, confidence)
+            if box:
+                print(
+                    f"{until!r} not showing after {retry_seconds:.0f}s - clicking {template!r} again",
+                    flush=True,
+                )
+                self._click_box(box)
+        self.wait_for_image(until, message)
 
     def wait_and_click_image(self, template: str) -> None:
         self.click_image(template)
@@ -214,12 +259,28 @@ class ScreenActions:
         window = windows[0]
         if window.isMinimized:
             window.restore()
-        try:
-            window.activate()
-        except gw.PyGetWindowException as exc:
-            # pygetwindow's activate() raises even when the underlying
-            # Windows call actually succeeded - a known false positive.
-            # "Error code from Windows: 0" literally means no error
-            # occurred, so only re-raise for an actual nonzero code.
-            if "Error code from Windows: 0" not in str(exc):
-                raise
+        for attempt in range(3):
+            if attempt:
+                # Windows refuses to hand focus to a window when the
+                # requesting process wasn't the last to receive input
+                # (the "foreground lock") - a held Alt press makes this
+                # process that one, so the next activate() is allowed.
+                self.hotkey(["alt"])
+            try:
+                window.activate()
+            except gw.PyGetWindowException as exc:
+                # pygetwindow's activate() raises even when the underlying
+                # Windows call actually succeeded - a known false positive.
+                # "Error code from Windows: 0" literally means no error
+                # occurred, so only re-raise for an actual nonzero code.
+                if "Error code from Windows: 0" not in str(exc):
+                    raise
+            time.sleep(0.3)
+            if gw.getActiveWindow() == window:
+                return
+        active = gw.getActiveWindow()
+        print(
+            f"WARNING: couldn't focus {window_title!r} - "
+            f"{active.title if active else 'nothing'!r} has focus instead",
+            flush=True,
+        )
