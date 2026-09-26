@@ -28,6 +28,7 @@ data/
 
 # Per-machine config overrides (e.g. config/regions.local.json)
 config/*.local.json
+assets/templates.local/
 
 # Runtime logs
 *.log

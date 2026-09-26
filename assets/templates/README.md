@@ -32,3 +32,4 @@ Tips:
 - Crop tight and avoid text that could change (timestamps, counters).
 - If matches are unreliable, lower `confidence` in `ScreenActions(...)` (default 0.8) — this requires OpenCV (`pip install opencv-python`), otherwise pyautogui falls back to exact pixel matching.
 - Screen scaling/resolution changes will break existing templates — recapture if you change display settings.
+- On a machine whose display differs from the one these were snipped on, save your recaptures to `assets/templates.local/` (gitignored) under the same filenames instead of overwriting these. Any template found there is used in place of the one here, per file, so the shared set keeps working on the other machine.

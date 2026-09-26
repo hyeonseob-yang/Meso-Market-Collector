@@ -8,6 +8,27 @@ def _write_box(path, left):
     path.write_text(json.dumps({"meso_price": {"left": left, "top": 20, "width": 150, "height": 30}}))
 
 
+def test_get_template_path_prefers_local_copy_per_file(tmp_path, monkeypatch):
+    shared, local = tmp_path / "templates", tmp_path / "templates.local"
+    shared.mkdir()
+    local.mkdir()
+    (shared / "login_button.png").write_bytes(b"shared")
+    (shared / "quick_move_button.png").write_bytes(b"shared")
+    (local / "login_button.png").write_bytes(b"local")
+    monkeypatch.setattr(config, "TEMPLATES_DIR", shared)
+    monkeypatch.setattr(config, "LOCAL_TEMPLATES_DIR", local)
+
+    assert config.get_template_path("login_button.png") == local / "login_button.png"
+    assert config.get_template_path("quick_move_button.png") == shared / "quick_move_button.png"
+
+
+def test_get_template_path_falls_back_without_local_dir(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "TEMPLATES_DIR", tmp_path / "templates")
+    monkeypatch.setattr(config, "LOCAL_TEMPLATES_DIR", tmp_path / "missing")
+
+    assert config.get_template_path("login_button.png") == tmp_path / "templates" / "login_button.png"
+
+
 def test_load_regions_defaults_to_committed_file_without_local_override(tmp_path, monkeypatch):
     default_file = tmp_path / "regions.json"
     _write_box(default_file, left=10)

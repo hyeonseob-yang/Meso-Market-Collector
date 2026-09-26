@@ -152,7 +152,12 @@ separate Linux/WSL venv needed for that anymore.
 5. **Template images.** The routine finds what to click, and confirms
    where it is, by matching template screenshots — see
    [`assets/templates/README.md`](assets/templates/README.md) for which
-   ones are used and how to recapture them.
+   ones are used and how to recapture them. Templates only match at the
+   resolution/UI scale they were snipped at, so if this machine's display
+   differs from the one the committed templates came from, put your own
+   snips in `assets/templates.local/` (gitignored, same filenames) — each
+   one found there is used instead of the shared copy, without changing
+   anything for other machines.
 
 6. **Routine steps.** [`config/routine.json`](config/routine.json) holds
    the ordered cleanup → launch → login → navigate → record → close

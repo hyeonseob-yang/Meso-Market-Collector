@@ -16,6 +16,11 @@ REGIONS_FILE = PROJECT_ROOT / "config" / "regions.json"
 # Per-machine override (gitignored) - coordinates depend on this machine's
 # screen/window layout, so edit this instead of the committed default.
 LOCAL_REGIONS_FILE = PROJECT_ROOT / "config" / "regions.local.json"
+TEMPLATES_DIR = PROJECT_ROOT / "assets" / "templates"
+# Per-machine template overrides (gitignored) - same reason as
+# regions.local.json: a template only matches at the resolution/UI scale it
+# was snipped at, so machines with different displays need their own.
+LOCAL_TEMPLATES_DIR = PROJECT_ROOT / "assets" / "templates.local"
 DATA_DIR = PROJECT_ROOT / "data"
 CSV_PATH = DATA_DIR / "price_history.csv"
 REGION_READINGS_CSV_PATH = DATA_DIR / "region_readings.csv"
@@ -53,6 +58,14 @@ def get_regions_file() -> Path:
     Resolved fresh on each call so a local file created after import still
     takes effect."""
     return LOCAL_REGIONS_FILE if LOCAL_REGIONS_FILE.exists() else REGIONS_FILE
+
+
+def get_template_path(name: str) -> Path:
+    """assets/templates.local/<name> if it exists, else the committed
+    assets/templates/<name>. Checked per file, so a machine only needs to
+    override the templates that actually differ on it."""
+    local = LOCAL_TEMPLATES_DIR / name
+    return local if local.exists() else TEMPLATES_DIR / name
 
 
 def load_regions(path: Path | None = None) -> list[Region]:

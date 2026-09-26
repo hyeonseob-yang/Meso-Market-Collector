@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .api_client import post_price_row as post_price_row_api
 from .capture import capture_region
-from .config import load_regions
+from .config import get_template_path, load_regions
 from .parser import parse_price
 from .storage import append_price_row, clear_old_snapshots, save_snapshot
 
@@ -25,8 +25,6 @@ except Exception as exc:  # pragma: no cover - environment dependent
         "game), not a headless shell."
     ) from exc
 
-TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "assets" / "templates"
-
 
 class ScreenActions:
     def __init__(
@@ -35,7 +33,7 @@ class ScreenActions:
         timeout: float = 180.0,
         stable_seconds: float = 1.0,
         confidence: float = 0.8,
-        templates_dir: Path = TEMPLATES_DIR,
+        templates_dir: Path | None = None,
         hold_seconds: float = 0.05,
     ):
         self.poll_interval = poll_interval
@@ -52,9 +50,13 @@ class ScreenActions:
         # returning None when nothing matches - treat that the same as
         # "not found yet" so callers' retry loops actually get to retry,
         # instead of crashing on the very first failed check.
+        # An explicit templates_dir is used as-is; otherwise each template
+        # comes from assets/templates.local/ if this machine has its own
+        # copy, else the shared assets/templates/ (see get_template_path).
+        path = self.templates_dir / template if self.templates_dir else get_template_path(template)
         try:
             return pyautogui.locateOnScreen(
-                str(self.templates_dir / template),
+                str(path),
                 confidence=confidence if confidence is not None else self.confidence,
             )
         except pyautogui.ImageNotFoundException:
