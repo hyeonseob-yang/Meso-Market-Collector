@@ -87,18 +87,33 @@ separate Linux/WSL venv needed for that anymore.
    ```powershell
    $shell = New-Object -ComObject WScript.Shell
    $sc = $shell.CreateShortcut("$env:USERPROFILE\Desktop\MapleStory.lnk")  # or wherever your game's shortcut is
-   $sc.TargetPath; $sc.Arguments  # note these two values
+   $sc.TargetPath; $sc.Arguments  # sanity check: launcher exe, e.g. nxl://launch/10100
 
-   $action = New-ScheduledTaskAction -Execute "<TargetPath from above>" -Argument "<Arguments from above>"
+   $action = New-ScheduledTaskAction -Execute $sc.TargetPath -Argument $sc.Arguments
    $principal = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$env:USERNAME" -LogonType Interactive -RunLevel Highest
    $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date)
    Register-ScheduledTask -TaskName "MesoMarketCollector_MapleStoryViaLauncher" -Action $action -Principal $principal -Trigger $trigger -Force
    ```
-   (`tools/find_shortcut_target.ps1` does the first part — finding a
-   shortcut's target/arguments — for you.) Verify it works with
+   The action is built straight from the shortcut (`$sc`), so there's
+   nothing to fill in by hand. If the sanity-check line prints nothing, the
+   shortcut path is wrong — `tools/find_shortcut_target.ps1` lists any
+   Maple shortcuts on your desktop(s) along with their targets/arguments.
+   Verify it works with
    `schtasks /run /tn "MesoMarketCollector_MapleStoryViaLauncher"` from a
    normal (non-admin) shell — it should go straight to the game's login
    screen with no prompt.
+
+   If nothing opens, check the task's last result:
+   ```powershell
+   Get-ScheduledTaskInfo -TaskName "MesoMarketCollector_MapleStoryViaLauncher" | Select-Object LastRunTime, LastTaskResult
+   ```
+   `2147942402` (`0x80070002`, file not found) means the task's program
+   path doesn't exist — e.g. it was registered with the wrong path, or the
+   launcher moved. Fix the existing task in place (Administrator
+   PowerShell, with `$sc` set as above) rather than re-registering:
+   ```powershell
+   Set-ScheduledTask -TaskName "MesoMarketCollector_MapleStoryViaLauncher" -Action (New-ScheduledTaskAction -Execute $sc.TargetPath -Argument $sc.Arguments)
+   ```
 
 3. **Close task.** Closing the game hits a related problem — see "Why a
    Scheduled Task" below — so it's also done via a second task, this one
