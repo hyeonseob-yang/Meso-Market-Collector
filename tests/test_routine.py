@@ -60,6 +60,26 @@ class FakeActions:
         self.calls.append(("clear_old_snapshots", max_age_days))
 
 
+def test_real_routine_cleans_up_then_focuses_game_before_any_screen_check():
+    """Guards config/routine.json's ordering: close leftovers, then launch,
+    then focus the game *before* anything looks at the screen - screenshots
+    only see the top window, so an image wait before focusing just times out
+    behind whatever else is in front (e.g. the terminal)."""
+    from pathlib import Path
+
+    steps = load_steps(Path(__file__).resolve().parent.parent / "config" / "routine.json")
+    actions = [s.action for s in steps]
+
+    launch = actions.index("launch")
+    assert [s.task_name for s in steps[:launch] if s.action == "run_task"] == [
+        "MesoMarketCollector_KillMapleStory",
+        "MesoMarketCollector_KillNexonLauncher",
+    ]
+    assert steps[launch + 1] == Step(action="focus_window", window_title="MapleStory")
+    screen_checks = {"wait_for_image", "wait_for_stable_image", "click_image", "click_until_image", "record_prices"}
+    assert not screen_checks & set(actions[: launch + 1])
+
+
 def test_load_steps_parses_json(tmp_path):
     routine_file = tmp_path / "routine.json"
     routine_file.write_text(
