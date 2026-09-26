@@ -250,6 +250,14 @@ class ScreenActions:
         # it's done, then resume the automated parts.
         input(f"\n{message}\n(press Enter to continue) ")
 
+    def wait(self, seconds: float) -> None:
+        # A fixed pause, for when something is visible before it's usable -
+        # e.g. the Log In button shows before the game accepts clicks, and a
+        # click-and-retry doesn't work there: the missed click leaves the
+        # cursor hovering the button, whose hover look no longer matches its
+        # template, so the retry can't find it to click again.
+        time.sleep(seconds)
+
     def focus_window(self, window_title: str) -> None:
         # A click's first hit on an unfocused window can just activate it
         # rather than actually registering on whatever's underneath the

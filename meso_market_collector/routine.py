@@ -29,6 +29,7 @@ class Step:
     until: str | None = None
     attempts: int | None = None
     retry_seconds: float | None = None
+    seconds: float | None = None
 
 
 def load_steps(path: Path) -> list[Step]:
@@ -64,6 +65,7 @@ class GameActions(Protocol):
     def run_task(self, task_name: str) -> None: ...
     def wait_for_process_exit(self, processes: list[str]) -> None: ...
     def wait_for_user(self, message: str) -> None: ...
+    def wait(self, seconds: float) -> None: ...
     def save_price_row(self) -> None: ...
     def post_price_row(self) -> None: ...
     def clear_old_snapshots(self, max_age_days: float) -> None: ...
@@ -106,6 +108,8 @@ def run_routine(steps: list[Step], task_name: str, actions: GameActions) -> None
             actions.wait_for_process_exit(step.processes)
         elif step.action == "wait_for_user":
             actions.wait_for_user(step.message)
+        elif step.action == "wait":
+            actions.wait(step.seconds)
         elif step.action == "save_price_row":
             actions.save_price_row()
         elif step.action == "post_price_row":

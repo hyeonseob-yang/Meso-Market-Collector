@@ -50,6 +50,9 @@ class FakeActions:
     def wait_for_user(self, message):
         self.calls.append(("wait_for_user", message))
 
+    def wait(self, seconds):
+        self.calls.append(("wait", seconds))
+
     def save_price_row(self):
         self.calls.append(("save_price_row",))
 
@@ -213,6 +216,27 @@ def test_run_routine_dispatches_focus_window():
     run_routine([Step(action="focus_window", window_title="MapleStory")], task_name="x", actions=actions)
 
     assert actions.calls == [("focus_window", "MapleStory")]
+
+
+def test_run_routine_dispatches_wait():
+    actions = FakeActions()
+
+    run_routine([Step(action="wait", seconds=25)], task_name="x", actions=actions)
+
+    assert actions.calls == [("wait", 25)]
+
+
+def test_real_routine_pauses_between_seeing_and_clicking_log_in():
+    """The Log In button shows before the game accepts clicks, and a missed
+    click can't be retried (the hovered button no longer matches) - so the
+    first click has to wait."""
+    from pathlib import Path
+
+    steps = load_steps(Path(__file__).resolve().parent.parent / "config" / "routine.json")
+    seen = next(i for i, s in enumerate(steps) if s.action == "wait_for_image" and s.template == "login_button.png")
+    clicked = next(i for i, s in enumerate(steps) if s.action == "click_until_image" and s.template == "login_button.png")
+
+    assert any(s.action == "wait" and s.seconds for s in steps[seen + 1 : clicked])
 
 
 def test_run_routine_dispatches_run_task():

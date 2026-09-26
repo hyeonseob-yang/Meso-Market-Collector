@@ -5,6 +5,7 @@
   {"action": "launch"},
   {"action": "focus_window", "window_title": "MapleStory"},
   {"action": "wait_for_image", "template": "login_button.png", "confidence": 0.986},
+  {"action": "wait", "seconds": 25},
   {"action": "click_until_image", "template": "login_button.png", "confidence": 0.986, "until": "quick_move_button.png", "attempts": 3, "retry_seconds": 20, "message": "Still not in the game world after 3 Log In clicks - click it by hand."},
   {"action": "wait_for_stable_image", "template": "quick_move_button.png"},
   {"action": "click_image", "template": "quick_move_button.png"},
