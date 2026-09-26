@@ -94,7 +94,7 @@ def test_append_price_row_uses_current_local_time_by_default(tmp_path):
         rows = list(csv.DictReader(f))
 
     # M/D/YYYY H:MM:SS, no leading zeros on month/day/hour - matches
-    # data/template.csv's existing hand-entered date format.
+    # the hand-maintained price sheet's existing hand-entered date format.
     import re
 
     assert re.match(r"^\d{1,2}/\d{1,2}/\d{4} \d{1,2}:\d{2}:\d{2}$", rows[0]["Date"])

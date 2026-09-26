@@ -180,13 +180,16 @@ separate Linux/WSL venv needed for that anymore.
    repo root:
    ```powershell
    $repo = (Get-Location).Path
-   $action = New-ScheduledTaskAction -Execute "cmd.exe" -WorkingDirectory $repo -Argument "/c `"`"$repo\.venv\Scripts\python.exe`" -u -m meso_market_collector.session --task-name MesoMarketCollector_MapleStoryViaLauncher >> data\session.log 2>&1`""
+   $action = New-ScheduledTaskAction -Execute "cmd.exe" -WorkingDirectory $repo -Argument "/c `"if not exist data mkdir data & `"$repo\.venv\Scripts\python.exe`" -u -m meso_market_collector.session --task-name MesoMarketCollector_MapleStoryViaLauncher >> data\session.log 2>&1`""
    $principal = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$env:USERNAME" -LogonType Interactive -RunLevel Highest
    $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date)
    Register-ScheduledTask -TaskName "MesoMarketCollector_Session" -Action $action -Principal $principal -Trigger $trigger -Force
    ```
    The working directory matters — the default `--routine` path
-   (`config/routine.json`) is relative to it. Output is appended to
+   (`config/routine.json`) is relative to it. `data/` is gitignored, so a
+   fresh clone doesn't have it, and `cmd` won't create it for the `>>`
+   redirect (the whole run would fail before Python starts, with no log) —
+   hence the `if not exist data mkdir data` first. Output is appended to
    `data/session.log` rather than shown, since the task's console window
    closes as soon as the run ends (taking any error with it). To run it on
    a schedule, swap the `-Once` trigger for e.g.
@@ -262,8 +265,10 @@ The launch task name is passed in each run rather than stored in config. Recorde
 prices are read via OCR
 ([`meso_market_collector/parser.py`](meso_market_collector/parser.py),
 using [pytesseract](https://github.com/madmaze/pytesseract)) and appended
-to `data/price_history.csv` as **one row per run**, matching the columns of
-`data/template.csv` (a hand-maintained example of the desired shape):
+to `data/price_history.csv` as **one row per run**, with the same columns
+(and date format) as the hand-maintained price sheet it feeds —
+`PRICE_ROW_FIELDNAMES` in
+[`storage.py`](meso_market_collector/storage.py) is the source of truth:
 `Date, Average, Buy Buyout 100M, Buy Buyout 1B, Buy Buyout 10B,
 Sell Buyout 100M, Sell Buyout 1B, Sell Buyout 10B, Notes` (`Notes` is
 always left blank for you to fill in by hand). `Average` comes from the

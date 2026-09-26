@@ -17,8 +17,8 @@ _SNAPSHOT_TIMESTAMP_RE = re.compile(r"_(\d{8}T\d{12})\.png$")
 
 REGION_READING_FIELDNAMES = ["timestamp", "item", "price"]
 
-# Matches data/template.csv (a hand-maintained example of the desired
-# output) - one row per collection run, not per box.
+# Matches the columns of the hand-maintained price sheet this output feeds
+# (kept outside the repo) - one row per collection run, not per box.
 PRICE_ROW_FIELDNAMES = [
     "Date",
     "Average",
@@ -35,7 +35,7 @@ PRICE_ROW_FIELDNAMES = [
 def append_price_row(
     row: dict[str, int | None], csv_path: Path = CSV_PATH, timestamp: str | None = None
 ) -> None:
-    """Append one wide-format row (see data/template.csv) - one row per
+    """Append one wide-format row (see PRICE_ROW_FIELDNAMES) - one row per
     collection run. `row` should already have PRICE_ROW_FIELDNAMES'
     price columns as keys (e.g. "Average", "Buy Buyout 100M") - see
     ScreenActions.record_prices, which captures directly under these
@@ -60,7 +60,7 @@ def append_region_reading(item: str, price: float | None, csv_path: Path = REGIO
     """Append one row per captured region (flat, one row per box) - used by
     the generic collect.py entrypoint, which captures arbitrary configured
     regions without a sell/buy-tab concept. See append_price_row for the
-    main session's wide, per-run output matching data/template.csv."""
+    main session's wide, per-run output (PRICE_ROW_FIELDNAMES)."""
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     is_new = not csv_path.exists()
     with open(csv_path, "a", newline="", encoding="utf-8") as f:
