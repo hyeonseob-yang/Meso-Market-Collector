@@ -68,7 +68,11 @@ separate Linux/WSL venv needed for that anymore.
    ```bash
    python -m tools.find_coords
    ```
-   Edit [`config/regions.json`](config/regions.json). `meso_average` reads
+   Copy [`config/regions.json`](config/regions.json) to
+   `config/regions.local.json` and edit that copy — it's gitignored, and
+   used instead of `regions.json` whenever it exists, so each machine keeps
+   its own coordinates without touching the committed default (which is
+   still used when there's no local copy). `meso_average` reads
    identically regardless of which tab is showing (confirmed, not just
    assumed), so it's only captured once, on the Sell pass. Each
    `record_prices` step in [`config/routine.json`](config/routine.json)

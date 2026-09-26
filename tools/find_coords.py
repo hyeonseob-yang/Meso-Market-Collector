@@ -2,7 +2,8 @@
 
 Move the mouse to a corner of the price display in the game and read off
 the (x, y) printed here. Run twice per region (top-left, then bottom-right)
-to work out left/top/width/height for config/regions.json.
+to work out left/top/width/height for config/regions.local.json (or
+config/regions.json, if you're changing the shared default).
 
 Usage: python -m tools.find_coords
 """

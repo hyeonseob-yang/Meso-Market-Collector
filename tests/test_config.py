@@ -1,6 +1,31 @@
 import json
 
+from meso_market_collector import config
 from meso_market_collector.config import DEFAULT_TRACKER_API_URL, Region, get_tracker_api_url, load_regions
+
+
+def _write_box(path, left):
+    path.write_text(json.dumps({"meso_price": {"left": left, "top": 20, "width": 150, "height": 30}}))
+
+
+def test_load_regions_defaults_to_committed_file_without_local_override(tmp_path, monkeypatch):
+    default_file = tmp_path / "regions.json"
+    _write_box(default_file, left=10)
+    monkeypatch.setattr(config, "REGIONS_FILE", default_file)
+    monkeypatch.setattr(config, "LOCAL_REGIONS_FILE", tmp_path / "regions.local.json")
+
+    assert load_regions()[0].left == 10
+
+
+def test_load_regions_prefers_local_override_when_present(tmp_path, monkeypatch):
+    default_file = tmp_path / "regions.json"
+    local_file = tmp_path / "regions.local.json"
+    _write_box(default_file, left=10)
+    _write_box(local_file, left=99)
+    monkeypatch.setattr(config, "REGIONS_FILE", default_file)
+    monkeypatch.setattr(config, "LOCAL_REGIONS_FILE", local_file)
+
+    assert load_regions()[0].left == 99
 
 
 def test_load_regions_parses_named_boxes(tmp_path):
