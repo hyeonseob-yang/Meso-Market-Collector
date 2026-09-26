@@ -252,10 +252,16 @@ class ScreenActions:
         # A click's first hit on an unfocused window can just activate it
         # rather than actually registering on whatever's underneath the
         # cursor - bring it to the foreground explicitly first so every
-        # click_image afterward lands for real.
-        windows = gw.getWindowsWithTitle(window_title)
-        if not windows:
-            raise RuntimeError(f"No window found with title containing {window_title!r}")
+        # click_image afterward lands for real. Also needed before any
+        # wait_for_image on the game: screenshots only see what's on top,
+        # so a game window behind e.g. the terminal never matches. Polls
+        # for the window since, run right after launch, the game may not
+        # have created it yet.
+        deadline = time.monotonic() + self.timeout
+        while not (windows := gw.getWindowsWithTitle(window_title)):
+            if time.monotonic() >= deadline:
+                raise TimeoutError(f"Timed out waiting for a window with title containing {window_title!r}")
+            time.sleep(self.poll_interval)
         window = windows[0]
         if window.isMinimized:
             window.restore()
