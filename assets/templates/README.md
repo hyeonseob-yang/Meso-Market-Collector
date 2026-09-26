@@ -23,11 +23,6 @@ the one currently selected" (e.g. a highlighted background, different text
 color/weight) — not the tab's label text alone, since that's identical
 whether the tab is active or not.
 
-`yes_button.png`, `play_button.png`, `windows_run_prompt.png`, and
-`windows_run_button.png` are unused — left over from earlier launch/close
-approaches (see the main [README.md](../../README.md)'s "Why a Scheduled
-Task" section).
-
 Tips:
 - Crop tight and avoid text that could change (timestamps, counters).
 - If matches are unreliable, lower `confidence` in `ScreenActions(...)` (default 0.8) — this requires OpenCV (`pip install opencv-python`), otherwise pyautogui falls back to exact pixel matching.
