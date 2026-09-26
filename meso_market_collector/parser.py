@@ -13,7 +13,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 try:
     import pytesseract
@@ -33,6 +33,18 @@ else:
 # few OCR-noise-prone punctuation marks so it doesn't guess at letters that
 # happen to look like digits (e.g. reading "O" as a letter instead of 0).
 _TESSERACT_CONFIG = "--psm 7 -c tessedit_char_whitelist=0123456789,."
+
+# Price boxes are small (~20px tall) grey-on-grey text, which Tesseract
+# misreads fed raw (e.g. 408 as 405). Grayscale + 3x upscale read every
+# sample correctly; inverting or thresholding as well did worse, breaking
+# up the digits.
+_UPSCALE = 3
+
+
+def _prepare_image(image: Image.Image) -> Image.Image:
+    """Grayscale and upscale a captured region for OCR."""
+    gray = ImageOps.grayscale(image)
+    return gray.resize((gray.width * _UPSCALE, gray.height * _UPSCALE), Image.LANCZOS)
 
 
 def _parse_price_text(text: str) -> int | None:
@@ -55,5 +67,5 @@ def parse_price(image: Image.Image) -> int | None:
     """Extract a numeric price from a captured region via OCR."""
     if pytesseract is None:
         return None
-    text = pytesseract.image_to_string(image, config=_TESSERACT_CONFIG)
+    text = pytesseract.image_to_string(_prepare_image(image), config=_TESSERACT_CONFIG)
     return _parse_price_text(text)

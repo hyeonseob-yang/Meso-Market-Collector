@@ -1,4 +1,13 @@
-from meso_market_collector.parser import _parse_price_text
+from PIL import Image
+
+from meso_market_collector.parser import _parse_price_text, _prepare_image
+
+
+def test_prepare_image_grayscales_and_upscales_3x():
+    prepared = _prepare_image(Image.new("RGB", (65, 20), (120, 130, 140)))
+
+    assert prepared.mode == "L"
+    assert prepared.size == (195, 60)
 
 
 def test_parses_plain_digits():
