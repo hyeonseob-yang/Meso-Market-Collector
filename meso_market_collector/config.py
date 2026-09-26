@@ -13,6 +13,9 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 REGIONS_FILE = PROJECT_ROOT / "config" / "regions.json"
+# Per-machine override (gitignored) - coordinates depend on this machine's
+# screen/window layout, so edit this instead of the committed default.
+LOCAL_REGIONS_FILE = PROJECT_ROOT / "config" / "regions.local.json"
 DATA_DIR = PROJECT_ROOT / "data"
 CSV_PATH = DATA_DIR / "price_history.csv"
 REGION_READINGS_CSV_PATH = DATA_DIR / "region_readings.csv"
@@ -45,8 +48,16 @@ class Region:
         return (self.left, self.top, self.width, self.height)
 
 
-def load_regions(path: Path = REGIONS_FILE) -> list[Region]:
-    """Load named regions, or "column" shorthand entries.
+def get_regions_file() -> Path:
+    """regions.local.json if it exists, else the committed regions.json.
+    Resolved fresh on each call so a local file created after import still
+    takes effect."""
+    return LOCAL_REGIONS_FILE if LOCAL_REGIONS_FILE.exists() else REGIONS_FILE
+
+
+def load_regions(path: Path | None = None) -> list[Region]:
+    """Load named regions, or "column" shorthand entries, from `path` -
+    or, if not given, from get_regions_file().
 
     A plain entry is one box: {"left", "top", "width", "height"}.
 
@@ -58,6 +69,8 @@ def load_regions(path: Path = REGIONS_FILE) -> list[Region]:
     meaningful. Use this when boxes are stacked in a column (e.g. Sell/Buy
     Meso price rows); fall back to plain boxes for anything that isn't.
     """
+    if path is None:
+        path = get_regions_file()
     with open(path, "r", encoding="utf-8") as f:
         raw = json.load(f)
 

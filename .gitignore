@@ -26,6 +26,9 @@ htmlcov/
 # Collected data (screen-resolution/game-specific, not source)
 data/
 
+# Per-machine config overrides (e.g. config/regions.local.json)
+config/*.local.json
+
 # Runtime logs
 *.log
 
