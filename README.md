@@ -216,6 +216,12 @@ game client (confirmed in both MapleStory and Terraria):
   elevated window from a non-elevated process. `session.py` prints a
   warning at startup if it isn't elevated.
 
+Every click also first checks that the game window (the one the routine's
+`focus_window` step found) still has focus, and brings it back if not — so
+switching windows mid-run doesn't send clicks into another app. If the
+game can't be brought back, the run stops with an error instead of
+clicking.
+
 ### Why a Scheduled Task, not a direct launch/close?
 
 Several things ruled out the simpler options, for both launching and

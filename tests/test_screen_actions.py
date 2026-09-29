@@ -80,6 +80,96 @@ def test_focus_window_times_out_if_window_never_appears(monkeypatch, clock):
     assert clock.now >= 3
 
 
+class FocusableWindow(FakeWindow):
+    """A window that actually takes focus when activated (unless `stuck`)."""
+
+    def __init__(self, focus, title, stuck=False):
+        super().__init__()
+        self.focus, self.title, self.stuck = focus, title, stuck
+
+    def activate(self):
+        super().activate()
+        if not self.stuck:
+            self.focus["active"] = self
+
+
+class ClickPyautogui:
+    def __init__(self, focus):
+        self.focus = focus
+        self.clicked_with_focus_on = []
+
+    def center(self, box):
+        return box
+
+    def moveTo(self, point):
+        pass
+
+    def mouseDown(self, _pause=True):
+        self.clicked_with_focus_on.append(self.focus["active"])
+
+    def mouseUp(self):
+        pass
+
+    def keyDown(self, key, _pause=True):
+        pass
+
+    def keyUp(self, key, _pause=True):
+        pass
+
+    PAUSE = 0
+
+
+@pytest.fixture
+def focus_setup(monkeypatch, clock):
+    focus = {}
+    game = FocusableWindow(focus, "MapleStory")
+    other = FocusableWindow(focus, "Visual Studio Code")
+    monkeypatch.setattr(
+        screen_actions,
+        "gw",
+        SimpleNamespace(
+            getWindowsWithTitle=lambda title: [game],
+            getActiveWindow=lambda: focus.get("active"),
+            PyGetWindowException=Exception,
+        ),
+    )
+    fake = ClickPyautogui(focus)
+    monkeypatch.setattr(screen_actions, "pyautogui", fake)
+    actions = screen_actions.ScreenActions()
+    actions.focus_window("MapleStory")
+    return actions, focus, game, other, fake
+
+
+def test_click_refocuses_game_if_focus_moved_away(focus_setup):
+    actions, focus, game, other, fake = focus_setup
+    focus["active"] = other  # e.g. the user switched windows mid-run
+
+    actions._click_box((10, 10))
+
+    assert fake.clicked_with_focus_on == [game]
+
+
+def test_click_does_not_reactivate_when_game_already_focused(focus_setup):
+    actions, focus, game, other, fake = focus_setup
+    activations = game.activated
+
+    actions._click_box((10, 10))
+
+    assert game.activated == activations
+    assert fake.clicked_with_focus_on == [game]
+
+
+def test_click_refuses_if_game_cannot_be_refocused(focus_setup):
+    actions, focus, game, other, fake = focus_setup
+    focus["active"] = other
+    game.stuck = True  # Windows won't hand focus back
+
+    with pytest.raises(RuntimeError, match="MapleStory"):
+        actions._click_box((10, 10))
+
+    assert fake.clicked_with_focus_on == []  # never clicked into the wrong window
+
+
 class FakePyautogui:
     class ImageNotFoundException(Exception):
         pass

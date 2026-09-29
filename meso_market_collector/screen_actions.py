@@ -44,6 +44,7 @@ class ScreenActions:
         self.hold_seconds = hold_seconds
         self._readings: dict[str, int | None] = {}
         self._last_saved_row: dict[str, int | None] = {}
+        self._focus_target = None  # set by focus_window
 
     def _locate(self, template: str, confidence: float | None = None):
         # locateOnScreen raises ImageNotFoundException rather than
@@ -161,10 +162,25 @@ class ScreenActions:
         # per frame, and click()'s back-to-back down/up falls between polls
         # and never registers (confirmed in both Terraria and MapleStory -
         # mouse movement still registers either way, since it's continuous).
+        self._ensure_focus()
         pyautogui.moveTo(pyautogui.center(box))
         pyautogui.mouseDown(_pause=False)
         time.sleep(self.hold_seconds)
         pyautogui.mouseUp()
+
+    def _ensure_focus(self) -> None:
+        """Before a click, bring back the window focus_window last focused
+        if something else has taken focus since (e.g. a window switch
+        mid-run) - and refuse to click at all if that fails, rather than
+        clicking into whatever window is on top instead. Compared by
+        window handle, not title, so e.g. a browser tab with "MapleStory"
+        in its title never counts."""
+        if self._focus_target is None or gw.getActiveWindow() == self._focus_target:
+            return
+        if not self._activate(self._focus_target):
+            raise RuntimeError(
+                f"Couldn't bring {self._focus_target.title!r} back into focus before clicking"
+            )
 
     def click_until_image(
         self,
@@ -279,7 +295,7 @@ class ScreenActions:
         # template, so the retry can't find it to click again.
         time.sleep(seconds)
 
-    def focus_window(self, window_title: str) -> None:
+    def focus_window(self, window_title: str) -> bool:
         # A click's first hit on an unfocused window can just activate it
         # rather than actually registering on whatever's underneath the
         # cursor - bring it to the foreground explicitly first so every
@@ -294,6 +310,12 @@ class ScreenActions:
                 raise TimeoutError(f"Timed out waiting for a window with title containing {window_title!r}")
             time.sleep(self.poll_interval)
         window = windows[0]
+        # Remembered so every later click can make sure it's still this
+        # window that has focus - see _ensure_focus.
+        self._focus_target = window
+        return self._activate(window)
+
+    def _activate(self, window) -> bool:
         if window.isMinimized:
             window.restore()
         for attempt in range(3):
@@ -314,10 +336,11 @@ class ScreenActions:
                     raise
             time.sleep(0.3)
             if gw.getActiveWindow() == window:
-                return
+                return True
         active = gw.getActiveWindow()
         print(
-            f"WARNING: couldn't focus {window_title!r} - "
+            f"WARNING: couldn't focus {window.title!r} - "
             f"{active.title if active else 'nothing'!r} has focus instead",
             flush=True,
         )
+        return False
