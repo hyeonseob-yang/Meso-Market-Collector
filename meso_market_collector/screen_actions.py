@@ -181,9 +181,13 @@ class ScreenActions:
         game wasn't ready for input yet). After the last attempt, falls
         back to a normal wait_for_image, printing `message` so someone can
         finish the step by hand."""
-        self.click_image(template, confidence)
+        box = self.wait_for_image(template, confidence=confidence)
+        self._record_click(template, 1)
+        self._click_box(box)
+        clicks = 1
         for _ in range(attempts - 1):
             if self._poll_for(until, retry_seconds):
+                print(f"{until!r} appeared after click {clicks}", flush=True)
                 return
             box = self._locate(template, confidence)
             if box:
@@ -191,8 +195,25 @@ class ScreenActions:
                     f"{until!r} not showing after {retry_seconds:.0f}s - clicking {template!r} again",
                     flush=True,
                 )
+                clicks += 1
+                self._record_click(template, clicks)
                 self._click_box(box)
         self.wait_for_image(until, message)
+        print(f"{until!r} appeared after click {clicks}", flush=True)
+
+    def _record_click(self, template: str, n: int) -> None:
+        # Diagnostic: the first Log In click sometimes doesn't take while a
+        # retry does, even with the game focused and no consistent timing
+        # pattern - so keep what the screen looked like right before each
+        # click, to compare a missed one against one that worked.
+        path = save_snapshot(f"click{n}_{Path(template).stem}", pyautogui.screenshot())
+        active = gw.getActiveWindow()
+        print(
+            f"[{time.strftime('%H:%M:%S')}] click {n} on {template!r}: "
+            f"cursor at {tuple(pyautogui.position())}, "
+            f"focused {active.title if active else None!r}, screenshot {path.name}",
+            flush=True,
+        )
 
     def wait_and_click_image(self, template: str) -> None:
         self.click_image(template)
