@@ -11,6 +11,7 @@ PriceInput type and mutation this targets.
 from __future__ import annotations
 
 import sys
+from datetime import datetime, timezone
 
 import requests
 
@@ -41,7 +42,7 @@ _FIELD_MAP = {
 }
 
 
-def build_price_payload(row: dict[str, int | None]) -> dict:
+def build_price_payload(row: dict[str, int | None], collected_at: datetime | None = None) -> dict:
     """Build the GraphQL request body for recording one collected price
     row. `row` uses the same wide-row keys as storage.append_price_row
     (e.g. "Average", "Buy Buyout 100M") - see ScreenActions, which keeps
@@ -52,11 +53,13 @@ def build_price_payload(row: dict[str, int | None]) -> dict:
     this raises so the caller stops instead of reporting fabricated data to
     Tracker. The CSV row from save_price_row is unaffected either way,
     since it's written before this ever runs - only the Tracker post is
-    skipped. A missing "Notes" still defaults to "". No timestamp is sent -
-    PriceInput has no `datetime` field; Tracker stamps `occurred_at` itself
-    at insert time (Meso-Market-Tracker/backend/schema.py's record_price),
-    since the Collector is its only writer and there's nothing to gain from
-    trusting a client clock over the server's own."""
+    skipped. A missing "Notes" still defaults to "". `collected_at` is when
+    the prices were actually read, sent as `datetime` (UTC, ISO 8601) so a
+    row posted late - a retry, or a backfill after Tracker's database was
+    paused - is still recorded at its real time rather than at whenever
+    the post finally got through. It must be timezone-aware. Left out
+    (None), no `datetime` is sent and Tracker stamps the row itself at
+    insert time."""
     missing = [column for column in _FIELD_MAP if row.get(column) is None]
     if missing:
         message = (
@@ -67,25 +70,49 @@ def build_price_payload(row: dict[str, int | None]) -> dict:
         print(message, file=sys.stderr, flush=True)
         raise ValueError(message)
     price = {"notes": row.get("Notes") or ""}
+    if collected_at is not None:
+        if collected_at.tzinfo is None:
+            raise ValueError("collected_at must be timezone-aware")
+        price["datetime"] = collected_at.astimezone(timezone.utc).isoformat()
     for column, field in _FIELD_MAP.items():
         price[field] = int(row[column])
     return {"query": RECORD_PRICE_MUTATION, "variables": {"price": price}}
 
 
-def post_price_row(row: dict[str, int | None], url: str | None = None, timeout: float = 10.0) -> None:
-    if url is None:
-        url = get_tracker_api_url()
-    payload = build_price_payload(row)
+def _post(url: str, payload: dict, timeout: float) -> dict:
     response = requests.post(url, json=payload, timeout=timeout)
     response.raise_for_status()
+    return response.json()
+
+
+def post_price_row(
+    row: dict[str, int | None],
+    url: str | None = None,
+    timeout: float = 10.0,
+    collected_at: datetime | None = None,
+) -> None:
+    if url is None:
+        url = get_tracker_api_url()
+    body = _post(url, build_price_payload(row, collected_at), timeout)
 
     # A GraphQL server conventionally answers a rejected mutation with HTTP
-    # 200 and the failure only in the body - raise_for_status() above can't
+    # 200 and the failure only in the body - raise_for_status() can't
     # see that, so a resolver-level failure (e.g. a validation error) would
     # otherwise be silently treated as success, same category of problem
     # build_price_payload guards against for missing prices.
-    body = response.json()
     errors = body.get("errors")
+    if errors and collected_at is not None and "datetime" in str(errors):
+        # A Tracker whose PriceInput doesn't have `datetime` (yet) rejects
+        # the whole mutation over the unknown field. Better to record the
+        # row stamped with Tracker's own insert time than not at all - so
+        # the Collector and Tracker don't have to be updated in lockstep.
+        print(
+            "Tracker doesn't accept a datetime yet - re-posting without it "
+            "(the row will be stamped with Tracker's insert time)",
+            flush=True,
+        )
+        body = _post(url, build_price_payload(row), timeout)
+        errors = body.get("errors")
     if errors:
         message = f"Tracker rejected the price row - GraphQL errors: {errors}"
         print(message, file=sys.stderr, flush=True)

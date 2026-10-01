@@ -299,6 +299,10 @@ catch one. The same row is then POSTed to the sibling
 for the request built. It's sent to Tracker's deployed API Gateway endpoint
 (`config.DEFAULT_TRACKER_API_URL`) by default — set `MESO_TRACKER_API_URL`
 to override it (e.g. to point at a local `flask run` dev server instead).
+The row's collection time is sent with it as `datetime` (UTC), so a row
+posted late is still recorded at the time it was read; if Tracker's
+`PriceInput` doesn't have that field (yet), the rejected post is repeated
+once without it and Tracker stamps the row with its own insert time.
 Like any other step, a failed request (via `requests`' `raise_for_status()`)
 stops
 the routine there, skipping the cleanup steps after it — same as an OCR

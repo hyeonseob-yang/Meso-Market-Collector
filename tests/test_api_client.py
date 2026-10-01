@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -46,13 +47,27 @@ def test_build_price_payload_sends_ints_not_floats():
     assert not isinstance(payload["variables"]["price"]["average"], bool)
 
 
-def test_build_price_payload_sends_no_datetime():
-    # PriceInput has no `datetime` field - Tracker stamps `occurred_at`
-    # itself at insert time (schema.record_price), since the Collector is
-    # its only writer. See build_price_payload's docstring.
+def test_build_price_payload_sends_no_datetime_without_collected_at():
+    # No collection time given - Tracker stamps the row itself at insert
+    # time. See build_price_payload's docstring.
     payload = build_price_payload(COMPLETE_ROW)
 
     assert "datetime" not in payload["variables"]["price"]
+
+
+def test_build_price_payload_sends_collected_at_as_utc_iso_datetime():
+    collected_at = datetime(2026, 9, 30, 23, 19, 51, tzinfo=timezone(timedelta(hours=-7)))
+
+    payload = build_price_payload(COMPLETE_ROW, collected_at=collected_at)
+
+    # Converted to UTC, whatever zone it was given in.
+    assert payload["variables"]["price"]["datetime"] == "2026-10-01T06:19:51+00:00"
+
+
+def test_build_price_payload_rejects_naive_collected_at():
+    # A naive time would be silently read as whatever zone Tracker assumes.
+    with pytest.raises(ValueError, match="timezone-aware"):
+        build_price_payload(COMPLETE_ROW, collected_at=datetime(2026, 9, 30, 23, 19, 51))
 
 
 def test_build_price_payload_raises_on_missing_price(capsys):
@@ -124,6 +139,67 @@ def test_post_price_row_succeeds_when_recordPrice_returns_an_id(mock_post, capsy
     # printed (not just silently discarded) so the id is available for
     # cross-referencing against Tracker/Supabase later.
     assert "42" in capsys.readouterr().out
+
+
+COLLECTED_AT = datetime(2026, 10, 1, 6, 19, 51, tzinfo=timezone.utc)
+UNKNOWN_DATETIME_FIELD = {
+    "errors": [{"message": "Field 'datetime' is not defined by type 'PriceInput'."}],
+    "data": None,
+}
+
+
+@patch("meso_market_collector.api_client.requests.post")
+def test_post_price_row_sends_collected_at(mock_post):
+    mock_post.return_value = _fake_response({"data": {"recordPrice": "42"}})
+
+    post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql", collected_at=COLLECTED_AT)
+
+    assert mock_post.call_count == 1
+    sent = mock_post.call_args.kwargs["json"]["variables"]["price"]
+    assert sent["datetime"] == "2026-10-01T06:19:51+00:00"
+
+
+@patch("meso_market_collector.api_client.requests.post")
+def test_post_price_row_reposts_without_datetime_if_tracker_rejects_the_field(mock_post, capsys):
+    # A Tracker not yet updated to accept `datetime` rejects the whole
+    # mutation - the row should still get recorded, just without it.
+    mock_post.side_effect = [
+        _fake_response(UNKNOWN_DATETIME_FIELD),
+        _fake_response({"data": {"recordPrice": "42"}}),
+    ]
+
+    post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql", collected_at=COLLECTED_AT)
+
+    first, second = (call.kwargs["json"]["variables"]["price"] for call in mock_post.call_args_list)
+    assert "datetime" in first
+    assert "datetime" not in second
+    assert second["average"] == COMPLETE_ROW["Average"]
+    out = capsys.readouterr().out
+    assert "re-posting without it" in out
+    assert "42" in out
+
+
+@patch("meso_market_collector.api_client.requests.post")
+def test_post_price_row_does_not_repost_on_unrelated_errors(mock_post):
+    mock_post.return_value = _fake_response(
+        {"errors": [{"message": "average must be a positive integer"}], "data": None}
+    )
+
+    with pytest.raises(ValueError, match="average must be a positive integer"):
+        post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql", collected_at=COLLECTED_AT)
+
+    assert mock_post.call_count == 1
+
+
+@patch("meso_market_collector.api_client.requests.post")
+def test_post_price_row_raises_if_repost_without_datetime_also_fails(mock_post):
+    mock_post.side_effect = [
+        _fake_response(UNKNOWN_DATETIME_FIELD),
+        _fake_response({"data": {"recordPrice": "None"}}),
+    ]
+
+    with pytest.raises(ValueError, match="did not confirm"):
+        post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql", collected_at=COLLECTED_AT)
 
 
 @patch("meso_market_collector.api_client.requests.post")

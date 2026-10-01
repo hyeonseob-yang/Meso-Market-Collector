@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import subprocess
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .api_client import post_price_row as post_price_row_api
@@ -44,6 +45,7 @@ class ScreenActions:
         self.hold_seconds = hold_seconds
         self._readings: dict[str, int | None] = {}
         self._last_saved_row: dict[str, int | None] = {}
+        self._last_saved_at: datetime | None = None
         self._focus_target = None  # set by focus_window
 
     def _locate(self, template: str, confidence: float | None = None):
@@ -257,14 +259,16 @@ class ScreenActions:
     def save_price_row(self) -> None:
         append_price_row(self._readings)
         self._last_saved_row = self._readings
+        self._last_saved_at = datetime.now(timezone.utc)
         self._readings = {}
 
     def post_price_row(self) -> None:
         # Sends whatever save_price_row most recently wrote to the CSV -
         # not self._readings, which save_price_row has already cleared by
         # the time this runs (see routine.json, where this step follows
-        # save_price_row).
-        post_price_row_api(self._last_saved_row)
+        # save_price_row) - along with when it was saved, so Tracker
+        # records the collection time rather than the posting time.
+        post_price_row_api(self._last_saved_row, collected_at=self._last_saved_at)
 
     def clear_old_snapshots(self, max_age_days: float) -> None:
         clear_old_snapshots(max_age_days)
