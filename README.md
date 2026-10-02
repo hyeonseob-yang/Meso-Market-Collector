@@ -239,6 +239,37 @@ separate Linux/WSL venv needed for that anymore.
      closes it; the error is in `data/session.log`, with a screenshot in
      `data/snapshots/` if a screen check timed out.
 
+9. **Running with the lid closed (optional, laptops).** Closing the lid
+   switches the built-in screen off, and with no other display Windows
+   has nothing for the game to render to or the collector to capture. A
+   virtual display driver gives it one — the software equivalent of an
+   HDMI dummy plug:
+   1. Install the [Virtual Display Driver](https://github.com/VirtualDrivers/Virtual-Display-Driver)
+      control app:
+      ```powershell
+      winget install --id VirtualDrivers.Virtual-Display-Driver -e
+      ```
+   2. Run **VDD Control** as administrator and click **Install Driver**.
+   3. In Settings → System → Display, set the two displays to **Extend**
+      (right after install they're mirrored, shown as one box labelled
+      `1|2`), keep the laptop screen as the main display, and give the
+      virtual display the **same resolution and scale as the laptop
+      screen** (here 1920×1080 at 125%) — templates and region boxes only
+      match at the resolution/scale they were captured at.
+   4. Set the lid close action to **Do nothing** when plugged in (Control
+      Panel → Power Options → "Choose what closing the lid does").
+
+   With the lid open nothing changes: the laptop screen is still the main
+   display the collector captures. With it closed, the virtual display
+   becomes the only (and so main) one, and the game launches there
+   instead. The switch takes a few seconds, during which screenshots are
+   black — harmless, since every screen check polls.
+
+   Uninstall the driver (same app) before a major Intel/NVIDIA graphics
+   driver update, then reinstall after — the project warns of black-screen
+   / display-priority problems otherwise. Lid-closed runs still need AC
+   power and a logged-in, unlocked session, same as step 8.
+
 ### Simulated input in the game
 
 Two things have to be true for simulated clicks/keys to register in the
