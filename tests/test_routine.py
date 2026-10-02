@@ -24,7 +24,13 @@ class FakeActions:
         self.calls.append(("wait_for_stable_image", template))
 
     def click_image(self, template, confidence=None):
-        self.calls.append(("click_image", template))
+        # Confidence only recorded when a step sets one, so the many
+        # plain-click expectations stay ("click_image", template).
+        call = ("click_image", template) if confidence is None else ("click_image", template, confidence)
+        self.calls.append(call)
+
+    def click_image_if_present(self, template, confidence=None, **timing):
+        self.calls.append(("click_image_if_present", template, confidence, timing))
 
     def click_until_image(self, template, until, message=None, confidence=None, **tuning):
         self.calls.append(("click_until_image", template, until, message, confidence, tuning))
@@ -216,6 +222,69 @@ def test_run_routine_dispatches_focus_window():
     run_routine([Step(action="focus_window", window_title="MapleStory")], task_name="x", actions=actions)
 
     assert actions.calls == [("focus_window", "MapleStory")]
+
+
+def test_run_routine_passes_click_image_confidence():
+    actions = FakeActions()
+
+    run_routine(
+        [Step(action="click_image", template="buy_mesos_tab.png", confidence=0.95)], task_name="x", actions=actions
+    )
+
+    assert actions.calls == [("click_image", "buy_mesos_tab.png", 0.95)]
+
+
+def test_real_routine_tab_clicks_use_a_strict_confidence():
+    """The Sell and Buy tabs look alike (light "... Mesos" label on a plain
+    tab) and cross-match at ~0.75-0.94, so the default 0.8 could click the
+    wrong one - an exact template scores ~1.0, so 0.95 separates them."""
+    from pathlib import Path
+
+    steps = load_steps(Path(__file__).resolve().parent.parent / "config" / "routine.json")
+    tab_clicks = [s for s in steps if s.template in ("sell_mesos_tab.png", "buy_mesos_tab.png")]
+
+    assert len(tab_clicks) == 2
+    assert all(s.confidence is not None and s.confidence >= 0.95 for s in tab_clicks)
+
+
+def test_run_routine_dispatches_click_image_if_present():
+    actions = FakeActions()
+
+    run_routine(
+        [
+            Step(action="click_image_if_present", template="sell_mesos_tab.png", seconds=10),
+            Step(action="click_image_if_present", template="sell_mesos_tab.png"),
+        ],
+        task_name="x",
+        actions=actions,
+    )
+
+    assert actions.calls == [
+        ("click_image_if_present", "sell_mesos_tab.png", None, {"seconds": 10}),
+        # No `seconds` on the step -> the implementation's own default applies.
+        ("click_image_if_present", "sell_mesos_tab.png", None, {}),
+    ]
+
+
+def test_real_routine_selects_each_tab_before_recording_it():
+    """The market can open on either tab, so the routine must click the Sell
+    tab (when it isn't already selected) and confirm it before recording
+    Sell prices - then the same for Buy - rather than assume which tab is
+    showing."""
+    from pathlib import Path
+
+    steps = load_steps(Path(__file__).resolve().parent.parent / "config" / "routine.json")
+    described = [(s.action, s.template) for s in steps]
+    sell_record, buy_record = [i for i, s in enumerate(steps) if s.action == "record_prices"]
+
+    assert described[sell_record - 2 : sell_record] == [
+        ("click_image_if_present", "sell_mesos_tab.png"),
+        ("wait_for_image", "sell_mesos_active.png"),
+    ]
+    assert described[buy_record - 2 : buy_record] == [
+        ("click_image", "buy_mesos_tab.png"),
+        ("wait_for_image", "buy_mesos_active.png"),
+    ]
 
 
 def test_run_routine_dispatches_wait():

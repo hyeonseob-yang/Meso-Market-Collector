@@ -163,6 +163,17 @@ class ScreenActions:
     def click_image(self, template: str, confidence: float | None = None) -> None:
         self._click_box(self.wait_for_image(template, confidence=confidence))
 
+    def click_image_if_present(
+        self, template: str, seconds: float = 10.0, confidence: float | None = None
+    ) -> None:
+        """Click `template` if it shows up within `seconds`; otherwise just
+        carry on. For a click that's only sometimes needed - e.g. the
+        unselected Sell tab, which is only there to click when the market
+        opened on the Buy tab."""
+        box = self._poll_for(template, seconds, confidence)
+        if box:
+            self._click_box(box)
+
     def _click_box(self, box) -> None:
         # Held rather than pyautogui.click(): games poll input state once
         # per frame, and click()'s back-to-back down/up falls between polls

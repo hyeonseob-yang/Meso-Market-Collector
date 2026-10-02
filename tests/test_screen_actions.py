@@ -84,14 +84,30 @@ class FakePyautogui:
     class ImageNotFoundException(Exception):
         pass
 
-    def __init__(self):
+    def __init__(self, found=None):
         self.located: list[str] = []
         self.grayscale: list[bool] = []
+        self.found = found  # box to "find" for every template, or None
+        self.events: list[tuple] = []
 
     def locateOnScreen(self, path, confidence, grayscale):
         self.located.append(path)
         self.grayscale.append(grayscale)
-        raise self.ImageNotFoundException
+        if self.found is None:
+            raise self.ImageNotFoundException
+        return self.found
+
+    def center(self, box):
+        return ("center", box)
+
+    def moveTo(self, point):
+        self.events.append(("moveTo", point))
+
+    def mouseDown(self, _pause=True):
+        self.events.append(("mouseDown",))
+
+    def mouseUp(self):
+        self.events.append(("mouseUp",))
 
 
 @pytest.fixture
@@ -139,3 +155,22 @@ def test_locate_matches_in_color_not_grayscale(monkeypatch, template_dirs):
     screen_actions.ScreenActions()._locate("login_button.png")
 
     assert fake.grayscale == [False]
+
+
+def test_click_image_if_present_clicks_when_template_shows(monkeypatch, template_dirs, clock):
+    fake = FakePyautogui(found="box")
+    monkeypatch.setattr(screen_actions, "pyautogui", fake)
+
+    screen_actions.ScreenActions().click_image_if_present("login_button.png", seconds=10)
+
+    assert fake.events == [("moveTo", ("center", "box")), ("mouseDown",), ("mouseUp",)]
+
+
+def test_click_image_if_present_carries_on_when_template_never_shows(monkeypatch, template_dirs, clock):
+    fake = FakePyautogui()
+    monkeypatch.setattr(screen_actions, "pyautogui", fake)
+
+    screen_actions.ScreenActions(poll_interval=0.5).click_image_if_present("login_button.png", seconds=10)
+
+    assert fake.events == []  # no click, and no exception
+    assert clock.now >= 10  # gave it the full time before moving on
