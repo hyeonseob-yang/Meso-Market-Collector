@@ -55,9 +55,16 @@ class ScreenActions:
         # copy, else the shared assets/templates/ (see get_template_path).
         path = self.templates_dir / template if self.templates_dir else get_template_path(template)
         try:
+            # grayscale=False: pyscreeze matches in grayscale by default,
+            # where elements that differ mainly by color look the same -
+            # the teal "Request Sale" and green "Request Purchase" buttons
+            # cross-matched at ~0.85 (vs ~0.47 in color), so the Sell-tab
+            # check passed on the Buy tab and Buy prices got recorded as
+            # Sell.
             return pyautogui.locateOnScreen(
                 str(path),
                 confidence=confidence if confidence is not None else self.confidence,
+                grayscale=False,
             )
         except pyautogui.ImageNotFoundException:
             return None

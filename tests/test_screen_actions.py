@@ -86,9 +86,11 @@ class FakePyautogui:
 
     def __init__(self):
         self.located: list[str] = []
+        self.grayscale: list[bool] = []
 
-    def locateOnScreen(self, path, confidence):
+    def locateOnScreen(self, path, confidence, grayscale):
         self.located.append(path)
+        self.grayscale.append(grayscale)
         raise self.ImageNotFoundException
 
 
@@ -125,3 +127,15 @@ def test_locate_explicit_templates_dir_bypasses_local_lookup(monkeypatch, templa
     screen_actions.ScreenActions(templates_dir=explicit)._locate("login_button.png")
 
     assert fake.located == [str(explicit / "login_button.png")]
+
+
+def test_locate_matches_in_color_not_grayscale(monkeypatch, template_dirs):
+    """In grayscale the Sell tab's "Request Sale" and the Buy tab's "Request
+    Purchase" buttons match each other, so the tab checks can't tell the
+    tabs apart - matching has to be in color."""
+    fake = FakePyautogui()
+    monkeypatch.setattr(screen_actions, "pyautogui", fake)
+
+    screen_actions.ScreenActions()._locate("login_button.png")
+
+    assert fake.grayscale == [False]
