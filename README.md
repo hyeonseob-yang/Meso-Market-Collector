@@ -185,7 +185,7 @@ separate Linux/WSL venv needed for that anymore.
    repo root:
    ```powershell
    $repo = (Get-Location).Path
-   $action = New-ScheduledTaskAction -Execute "cmd.exe" -WorkingDirectory $repo -Argument "/c `"if not exist data mkdir data & `"$repo\.venv\Scripts\python.exe`" -u -m meso_market_collector.session --task-name MesoMarketCollector_MapleStoryViaLauncher >> data\session.log 2>&1`""
+   $action = New-ScheduledTaskAction -Execute "cmd.exe" -WorkingDirectory $repo -Argument "/c `"(if not exist data mkdir data) & `"$repo\.venv\Scripts\python.exe`" -u -m meso_market_collector.session --task-name MesoMarketCollector_MapleStoryViaLauncher >> data\session.log 2>&1`""
    $principal = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$env:USERNAME" -LogonType Interactive -RunLevel Highest
    $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date)
    Register-ScheduledTask -TaskName "MesoMarketCollector_Session" -Action $action -Principal $principal -Trigger $trigger -Force
@@ -194,7 +194,10 @@ separate Linux/WSL venv needed for that anymore.
    (`config/routine.json`) is relative to it. `data/` is gitignored, so a
    fresh clone doesn't have it, and `cmd` won't create it for the `>>`
    redirect (the whole run would fail before Python starts, with no log) —
-   hence the `if not exist data mkdir data` first. Output is appended to
+   hence the `(if not exist data mkdir data)` first. The parentheses are
+   required: without them `cmd` treats everything after the `&` as part of
+   the `if`, so once `data/` exists nothing runs at all (and the task still
+   reports success). Output is appended to
    `data/session.log` rather than shown, since the task's console window
    closes as soon as the run ends (taking any error with it). To run it on
    a schedule, swap the `-Once` trigger for e.g.

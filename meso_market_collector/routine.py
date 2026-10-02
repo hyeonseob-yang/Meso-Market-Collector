@@ -49,6 +49,9 @@ class GameActions(Protocol):
     ) -> None: ...
     def wait_for_stable_image(self, template: str) -> None: ...
     def click_image(self, template: str, confidence: float | None = None) -> None: ...
+    def click_image_if_present(
+        self, template: str, seconds: float = 10.0, confidence: float | None = None
+    ) -> None: ...
     def click_until_image(
         self,
         template: str,
@@ -82,7 +85,10 @@ def run_routine(steps: list[Step], task_name: str, actions: GameActions) -> None
         elif step.action == "wait_for_stable_image":
             actions.wait_for_stable_image(step.template)
         elif step.action == "click_image":
-            actions.click_image(step.template)
+            actions.click_image(step.template, step.confidence)
+        elif step.action == "click_image_if_present":
+            timing = {} if step.seconds is None else {"seconds": step.seconds}
+            actions.click_image_if_present(step.template, confidence=step.confidence, **timing)
         elif step.action == "click_until_image":
             # Only pass the tuning knobs a step actually sets, so the
             # implementation's own defaults apply otherwise.

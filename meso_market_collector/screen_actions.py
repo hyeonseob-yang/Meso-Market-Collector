@@ -58,9 +58,16 @@ class ScreenActions:
         # copy, else the shared assets/templates/ (see get_template_path).
         path = self.templates_dir / template if self.templates_dir else get_template_path(template)
         try:
+            # grayscale=False: pyscreeze matches in grayscale by default,
+            # where elements that differ mainly by color look the same -
+            # the teal "Request Sale" and green "Request Purchase" buttons
+            # cross-matched at ~0.85 (vs ~0.47 in color), so the Sell-tab
+            # check passed on the Buy tab and Buy prices got recorded as
+            # Sell.
             return pyautogui.locateOnScreen(
                 str(path),
                 confidence=confidence if confidence is not None else self.confidence,
+                grayscale=False,
             )
         except pyautogui.ImageNotFoundException:
             return None
@@ -158,6 +165,17 @@ class ScreenActions:
 
     def click_image(self, template: str, confidence: float | None = None) -> None:
         self._click_box(self.wait_for_image(template, confidence=confidence))
+
+    def click_image_if_present(
+        self, template: str, seconds: float = 10.0, confidence: float | None = None
+    ) -> None:
+        """Click `template` if it shows up within `seconds`; otherwise just
+        carry on. For a click that's only sometimes needed - e.g. the
+        unselected Sell tab, which is only there to click when the market
+        opened on the Buy tab."""
+        box = self._poll_for(template, seconds, confidence)
+        if box:
+            self._click_box(box)
 
     def _click_box(self, box) -> None:
         # Held rather than pyautogui.click(): games poll input state once
