@@ -199,9 +199,45 @@ separate Linux/WSL venv needed for that anymore.
    the `if`, so once `data/` exists nothing runs at all (and the task still
    reports success). Output is appended to
    `data/session.log` rather than shown, since the task's console window
-   closes as soon as the run ends (taking any error with it). To run it on
-   a schedule, swap the `-Once` trigger for e.g.
-   `New-ScheduledTaskTrigger -Daily -At 9am`.
+   closes as soon as the run ends (taking any error with it).
+
+8. **Hourly schedule (optional).** To have the session task run by itself
+   every hour, give it a repeating trigger — from an **Administrator**
+   PowerShell:
+   ```powershell
+   $start = (Get-Date).Date.AddHours((Get-Date).Hour + 1)   # next full hour
+   $trigger = New-ScheduledTaskTrigger -Once -At $start -RepetitionInterval (New-TimeSpan -Hours 1)
+   Set-ScheduledTask -TaskName "MesoMarketCollector_Session" -Trigger $trigger
+   ```
+   This only replaces the trigger; the task's command and other settings
+   are untouched. Check it with
+   `(Get-ScheduledTaskInfo -TaskName "MesoMarketCollector_Session").NextRunTime`
+   — it should show the next full hour. To go back to manual runs only:
+   ```powershell
+   Set-ScheduledTask -TaskName "MesoMarketCollector_Session" -Trigger (New-ScheduledTaskTrigger -Once -At (Get-Date))
+   ```
+   What a scheduled run needs, and does, on the machine:
+   - **It takes over the screen for a few minutes.** The game launches
+     fullscreen and has to stay the front window — screen checks only see
+     what's on top, so clicking into another window mid-run makes it time
+     out.
+   - **It closes MapleStory and the Nexon launcher** at the start and end
+     of every run, including a game you're playing at the time.
+   - **You have to be logged in with the screen unlocked** — the task runs
+     in your desktop session, and screen capture doesn't work on a locked
+     screen.
+   - **It doesn't start on battery, and stops if unplugged mid-run** —
+     Windows' default for scheduled tasks, which all four tasks here keep.
+     A task started on battery just sits in the `Queued` state with
+     nothing in `data/session.log`, then starts when plugged in. To allow
+     battery runs instead, apply
+     `New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries`
+     to each task with `Set-ScheduledTask -Settings`.
+   - **A missed hour isn't made up** (asleep, logged out, on battery) —
+     it waits for the next one.
+   - **A failed run leaves the game open** until the next run's cleanup
+     closes it; the error is in `data/session.log`, with a screenshot in
+     `data/snapshots/` if a screen check timed out.
 
 ### Simulated input in the game
 
