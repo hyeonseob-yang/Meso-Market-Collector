@@ -13,7 +13,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageStat
 
 try:
     import pytesseract
@@ -40,11 +40,21 @@ _TESSERACT_CONFIG = "--psm 7 -c tessedit_char_whitelist=0123456789,."
 # up the digits.
 _UPSCALE = 3
 
+# Tesseract needs clear space around the text: with digits touching the
+# crop's top edge (a region box set a few pixels low) it dropped a trailing
+# 7 - 417 read as 41, 427 as 42 - which is still a valid number, so it got
+# recorded and posted. Padding with the box's own background colour before
+# OCR read all of those correctly, so a slightly-off box no longer matters.
+_PADDING = 6
+
 
 def _prepare_image(image: Image.Image) -> Image.Image:
-    """Grayscale and upscale a captured region for OCR."""
+    """Grayscale, pad with the background colour, and upscale a captured
+    region for OCR."""
     gray = ImageOps.grayscale(image)
-    return gray.resize((gray.width * _UPSCALE, gray.height * _UPSCALE), Image.LANCZOS)
+    background = ImageStat.Stat(gray).median[0]
+    padded = ImageOps.expand(gray, border=_PADDING, fill=background)
+    return padded.resize((padded.width * _UPSCALE, padded.height * _UPSCALE), Image.LANCZOS)
 
 
 def _parse_price_text(text: str) -> int | None:

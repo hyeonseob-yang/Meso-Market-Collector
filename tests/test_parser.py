@@ -64,11 +64,26 @@ def test_find_implausible_prices_ignores_missing_values():
     assert find_implausible_prices(row) == []
 
 
-def test_prepare_image_grayscales_and_upscales_3x():
+def test_prepare_image_grayscales_pads_and_upscales_3x():
     prepared = _prepare_image(Image.new("RGB", (65, 20), (120, 130, 140)))
 
     assert prepared.mode == "L"
-    assert prepared.size == (195, 60)
+    # 6px of padding on every side, then 3x: (65 + 12) * 3 by (20 + 12) * 3
+    assert prepared.size == (231, 96)
+
+
+def test_prepare_image_pads_with_the_background_colour():
+    """Text touching the crop's edge gets clear space around it, in the
+    box's own background shade (so the padding doesn't read as a border)."""
+    image = Image.new("L", (65, 20), 200)  # light background...
+    for x in range(20, 40):
+        image.putpixel((x, 0), 60)  # ...with dark "text" touching the top edge
+
+    prepared = _prepare_image(image)
+
+    assert prepared.getpixel((0, 0)) == 200  # corner is padding, background-coloured
+    assert prepared.getpixel((prepared.width // 2, 3)) == 200  # clear space above the text
+    assert prepared.getpixel(((6 + 30) * 3, 6 * 3 + 1)) < 120  # the text itself, now below the padding
 
 
 def test_parses_plain_digits():
