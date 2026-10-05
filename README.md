@@ -169,8 +169,8 @@ separate Linux/WSL venv needed for that anymore.
    launcher you opened yourself.) The launcher starts the game already
    signed in, so login is just a click on the Log In button, followed by
    Quick Move, Meso Market, and the Buy tab. The Log In click is a
-   `click_until_image` step: if Quick Move hasn't appeared 20 seconds after
-   a click, it clicks again (up to 3 times) — the game sometimes ignores a
+   `click_until_image` step: if Quick Move hasn't appeared 30 seconds after
+   a click, it clicks again (up to 10 times) — the game sometimes ignores a
    click while it's still getting ready. Each tab is confirmed by a
    `wait_for_image` checkpoint before recording, which prints what it's
    waiting for so you can finish a step by hand if a click ever misses. Any
