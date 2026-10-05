@@ -264,3 +264,47 @@ def test_click_image_if_present_carries_on_when_template_never_shows(monkeypatch
 
     assert fake.events == []  # no click, and no exception
     assert clock.now >= 10  # gave it the full time before moving on
+
+
+def _readings(buy_100m):
+    return {
+        "Average": 420,
+        "Buy Buyout 100M": buy_100m,
+        "Buy Buyout 1B": 427,
+        "Buy Buyout 10B": 427,
+        "Sell Buyout 100M": 418,
+        "Sell Buyout 1B": 418,
+        "Sell Buyout 10B": 418,
+    }
+
+
+@pytest.fixture
+def saved_rows(monkeypatch):
+    saved = []
+    monkeypatch.setattr(screen_actions, "append_price_row", lambda row, notes="": saved.append((dict(row), notes)))
+    return saved
+
+
+def test_save_price_row_keeps_an_implausible_price_and_notes_it(saved_rows):
+    """A price that doesn't fit the row (427 read as 42) is recorded as
+    read, with a note naming it - not blanked, which made the Tracker post
+    refuse the row and fail the run."""
+    actions = screen_actions.ScreenActions()
+    actions._readings = _readings(buy_100m=42)
+
+    actions.save_price_row()
+
+    note = "Possible OCR misread: Buy Buyout 100M=42"
+    assert saved_rows == [(_readings(buy_100m=42), note)]
+    # ...and the same note rides along to Tracker with the row.
+    assert actions._last_saved_row == {**_readings(buy_100m=42), "Notes": note}
+
+
+def test_save_price_row_leaves_notes_blank_for_a_plausible_row(saved_rows):
+    actions = screen_actions.ScreenActions()
+    actions._readings = _readings(buy_100m=427)
+
+    actions.save_price_row()
+
+    assert saved_rows == [(_readings(buy_100m=427), "")]
+    assert actions._last_saved_row["Notes"] == ""

@@ -352,7 +352,8 @@ to `data/price_history.csv` as **one row per run**, with the same columns
 [`storage.py`](meso_market_collector/storage.py) is the source of truth:
 `Date, Average, Buy Buyout 100M, Buy Buyout 1B, Buy Buyout 10B,
 Sell Buyout 100M, Sell Buyout 1B, Sell Buyout 10B, Notes` (`Notes` is
-always left blank for you to fill in by hand). `Average` comes from the
+left blank for you to fill in by hand, unless the run flags a suspect
+price — see below). `Average` comes from the
 `meso_average` box, which reads identically regardless of which tab is
 showing — confirmed empirically, not just assumed — so it's captured once
 per row rather than separately for each tab. If OCR can't cleanly read a
@@ -361,12 +362,14 @@ blank. Every box's raw crop is saved to `data/snapshots/` each run, named
 with what OCR read (e.g. `Average_406_<timestamp>.png`, or
 `..._unreadable_...`) — a misread digit (3 vs 6, say) still parses as a
 valid number, so comparing a crop to its filename is the only way to
-catch one for certain. The obvious cases are caught automatically before
+catch one for certain. The obvious cases are flagged automatically before
 saving (`parser.find_implausible_prices`): a price under half or over
 double the row's median (a dropped or extra digit, e.g. 427 read as 42),
-or more than 10% off the other tiers on its own Buy/Sell side, is blanked
-like an unreadable box — so it's never written to the CSV or sent to
-Tracker, and a warning names it in the log. The same row is then POSTed to the sibling
+or more than 10% off the other tiers on its own Buy/Sell side. A flagged
+price is still recorded as read — the run isn't stopped over it — but the
+row's `Notes` says which one to check (e.g. `Possible OCR misread: Buy
+Buyout 100M=42`), in the CSV and on Tracker, and a warning names it in
+the log. The same row is then POSTed to the sibling
 [Meso-Market-Tracker](../Meso-Market-Tracker) project's GraphQL API
 (`post_price_row` step, right after `save_price_row`, in
 `config/routine.json`) — see

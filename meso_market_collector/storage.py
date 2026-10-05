@@ -33,22 +33,26 @@ PRICE_ROW_FIELDNAMES = [
 
 
 def append_price_row(
-    row: dict[str, int | None], csv_path: Path = CSV_PATH, timestamp: str | None = None
+    row: dict[str, int | None],
+    csv_path: Path = CSV_PATH,
+    timestamp: str | None = None,
+    notes: str = "",
 ) -> None:
     """Append one wide-format row (see PRICE_ROW_FIELDNAMES) - one row per
     collection run. `row` should already have PRICE_ROW_FIELDNAMES'
     price columns as keys (e.g. "Average", "Buy Buyout 100M") - see
     ScreenActions.record_prices, which captures directly under these
     names. Date (local time, matching the template's hand-entered
-    convention - not the UTC timestamps append_region_reading uses) and a
-    blank Notes column are filled in automatically unless a `timestamp` is
-    given (mainly for tests)."""
+    convention - not the UTC timestamps append_region_reading uses) is
+    filled in automatically unless a `timestamp` is given (mainly for
+    tests). `notes` goes in the Notes column - blank unless the caller has
+    something to flag about the row (see ScreenActions.save_price_row)."""
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     is_new = not csv_path.exists()
     if timestamp is None:
         now = datetime.now()
         timestamp = f"{now.month}/{now.day}/{now.year} {now.hour}:{now.minute:02d}:{now.second:02d}"
-    full_row = {"Date": timestamp, **row, "Notes": ""}
+    full_row = {"Date": timestamp, **row, "Notes": notes}
     with open(csv_path, "a", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=PRICE_ROW_FIELDNAMES)
         if is_new:

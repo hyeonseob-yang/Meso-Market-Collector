@@ -142,3 +142,20 @@ def test_clear_old_snapshots_handles_missing_directory(tmp_path):
     deleted = clear_old_snapshots(max_age_days=7, snapshot_dir=missing_dir, now=datetime.now(timezone.utc))
 
     assert deleted == []
+
+
+def test_append_price_row_writes_notes(tmp_path):
+    csv_path = tmp_path / "price_history.csv"
+
+    append_price_row(
+        {"Average": 420, "Buy Buyout 100M": 42},
+        csv_path=csv_path,
+        timestamp="10/3/2026 9:01:35",
+        notes="Possible OCR misread: Buy Buyout 100M=42",
+    )
+
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        (row,) = csv.DictReader(f)
+
+    assert row["Buy Buyout 100M"] == "42"
+    assert row["Notes"] == "Possible OCR misread: Buy Buyout 100M=42"

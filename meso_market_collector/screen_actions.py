@@ -276,19 +276,19 @@ class ScreenActions:
 
     def save_price_row(self) -> None:
         # A misread that still parses as a number (e.g. 427 read as 42)
-        # would otherwise go straight into the CSV and to Tracker. Blank
-        # it instead, same as an unreadable box - so it's never recorded,
-        # and post_price_row refuses the incomplete row rather than send
-        # it. The snapshot keeps the misread value in its filename.
-        for column in find_implausible_prices(self._readings):
-            print(
-                f"WARNING: {column} read as {self._readings[column]}, which doesn't fit "
-                "the rest of the row - treating it as unreadable",
-                flush=True,
-            )
-            self._readings[column] = None
-        append_price_row(self._readings)
-        self._last_saved_row = self._readings
+        # looks like any other price in the CSV and on Tracker. Rather
+        # than blank it - which made post_price_row refuse the row and
+        # fail the whole run - keep the value as read and flag it in the
+        # row's Notes (saved to the CSV and sent to Tracker), so the run
+        # still completes and the suspect value is marked for checking
+        # against its snapshot.
+        suspect = find_implausible_prices(self._readings)
+        notes = ""
+        if suspect:
+            notes = "Possible OCR misread: " + ", ".join(f"{c}={self._readings[c]}" for c in suspect)
+            print(f"WARNING: {notes} - doesn't fit the rest of the row; noted on the row", flush=True)
+        append_price_row(self._readings, notes=notes)
+        self._last_saved_row = {**self._readings, "Notes": notes}
         self._last_saved_at = datetime.now(timezone.utc)
         self._readings = {}
 
