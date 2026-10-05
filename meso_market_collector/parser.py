@@ -63,6 +63,44 @@ def _parse_price_text(text: str) -> int | None:
     return int(text)
 
 
+_BUY_TIERS = ("Buy Buyout 100M", "Buy Buyout 1B", "Buy Buyout 10B")
+_SELL_TIERS = ("Sell Buyout 100M", "Sell Buyout 1B", "Sell Buyout 10B")
+
+# Same-side tiers (100M/1B/10B) sit within a few points of each other;
+# 10% apart means a misread. Deliberately not applied across sides: a real
+# spike had Buy 480 vs Sell 413, a 16% gap.
+_MAX_TIER_DEVIATION = 0.10
+
+
+def find_implausible_prices(row: dict[str, int | None]) -> list[str]:
+    """Return the columns of `row` whose value is almost certainly an OCR
+    misread, even though it parsed as a clean number - e.g. a 100M box read
+    as 42 when it showed 427 (a trailing 7 dropped by a tight crop), which
+    happened on 13 hourly runs in Oct 2026. Two rules:
+      - under half or over double the median of all the row's prices (a
+        dropped or extra digit);
+      - more than 10% from the median of its own side's three tiers.
+    Missing (None) values are ignored - those are already handled as
+    unreadable."""
+    def median(values):
+        values = sorted(values)
+        mid = len(values) // 2
+        return values[mid] if len(values) % 2 else (values[mid - 1] + values[mid]) / 2
+
+    present = {column: value for column, value in row.items() if isinstance(value, int)}
+    if not present:
+        return []
+    overall = median(present.values())
+    bad = [c for c, v in present.items() if not overall / 2 <= v <= overall * 2]
+    for side in (_BUY_TIERS, _SELL_TIERS):
+        tiers = {c: present[c] for c in side if c in present and c not in bad}
+        if len(tiers) < 2:
+            continue
+        side_median = median(tiers.values())
+        bad += [c for c, v in tiers.items() if abs(v - side_median) > side_median * _MAX_TIER_DEVIATION]
+    return bad
+
+
 def parse_price(image: Image.Image) -> int | None:
     """Extract a numeric price from a captured region via OCR."""
     if pytesseract is None:

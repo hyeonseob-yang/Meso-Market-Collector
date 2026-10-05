@@ -13,7 +13,7 @@ from pathlib import Path
 from .api_client import post_price_row as post_price_row_api
 from .capture import capture_region
 from .config import get_template_path, load_regions
-from .parser import parse_price
+from .parser import find_implausible_prices, parse_price
 from .storage import append_price_row, clear_old_snapshots, save_snapshot
 
 try:
@@ -275,6 +275,18 @@ class ScreenActions:
             self._readings[label] = price
 
     def save_price_row(self) -> None:
+        # A misread that still parses as a number (e.g. 427 read as 42)
+        # would otherwise go straight into the CSV and to Tracker. Blank
+        # it instead, same as an unreadable box - so it's never recorded,
+        # and post_price_row refuses the incomplete row rather than send
+        # it. The snapshot keeps the misread value in its filename.
+        for column in find_implausible_prices(self._readings):
+            print(
+                f"WARNING: {column} read as {self._readings[column]}, which doesn't fit "
+                "the rest of the row - treating it as unreadable",
+                flush=True,
+            )
+            self._readings[column] = None
         append_price_row(self._readings)
         self._last_saved_row = self._readings
         self._last_saved_at = datetime.now(timezone.utc)

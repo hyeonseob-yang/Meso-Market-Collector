@@ -361,7 +361,12 @@ blank. Every box's raw crop is saved to `data/snapshots/` each run, named
 with what OCR read (e.g. `Average_406_<timestamp>.png`, or
 `..._unreadable_...`) — a misread digit (3 vs 6, say) still parses as a
 valid number, so comparing a crop to its filename is the only way to
-catch one. The same row is then POSTed to the sibling
+catch one for certain. The obvious cases are caught automatically before
+saving (`parser.find_implausible_prices`): a price under half or over
+double the row's median (a dropped or extra digit, e.g. 427 read as 42),
+or more than 10% off the other tiers on its own Buy/Sell side, is blanked
+like an unreadable box — so it's never written to the CSV or sent to
+Tracker, and a warning names it in the log. The same row is then POSTed to the sibling
 [Meso-Market-Tracker](../Meso-Market-Tracker) project's GraphQL API
 (`post_price_row` step, right after `save_price_row`, in
 `config/routine.json`) — see
