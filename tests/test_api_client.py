@@ -117,6 +117,34 @@ def test_build_price_payload_defaults_notes_to_empty_string():
     assert payload["variables"]["price"]["notes"] == ""
 
 
+@pytest.fixture(autouse=True)
+def no_secret(monkeypatch):
+    # Never read this machine's real .env file or environment variable.
+    monkeypatch.setattr("meso_market_collector.api_client.get_record_price_secret", lambda: None)
+
+
+@patch("meso_market_collector.api_client.requests.post")
+def test_post_price_row_sends_secret_header_when_configured(mock_post, monkeypatch, capsys):
+    monkeypatch.setattr("meso_market_collector.api_client.get_record_price_secret", lambda: "s3cret")
+    mock_post.return_value = _fake_response({"data": {"recordPrice": "42"}})
+
+    post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql")
+
+    assert mock_post.call_args.kwargs["headers"] == {"x-record-price-secret": "s3cret"}
+    out = capsys.readouterr()
+    assert "s3cret" not in out.out + out.err  # never logged
+
+
+@patch("meso_market_collector.api_client.requests.post")
+def test_post_price_row_posts_without_header_and_warns_when_no_secret(mock_post, capsys):
+    mock_post.return_value = _fake_response({"data": {"recordPrice": "42"}})
+
+    post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql")
+
+    assert mock_post.call_args.kwargs["headers"] == {}
+    assert "no Tracker secret configured" in capsys.readouterr().out
+
+
 def _fake_response(body, raise_for_status_error=None):
     response = MagicMock()
     response.json.return_value = body

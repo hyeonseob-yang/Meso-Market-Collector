@@ -35,8 +35,51 @@ DEFAULT_TRACKER_API_URL = "https://xa6elv0g44.execute-api.us-east-1.amazonaws.co
 def get_tracker_api_url() -> str:
     """Resolved fresh on each call (not a module-level constant) so a
     MESO_TRACKER_API_URL set after import - e.g. by a test - still takes
-    effect."""
-    return os.environ.get("MESO_TRACKER_API_URL", DEFAULT_TRACKER_API_URL)
+    effect. Like any setting here, it can also come from .env (see _env)."""
+    return _env("MESO_TRACKER_API_URL") or DEFAULT_TRACKER_API_URL
+
+
+# Secrets and other environment-style settings (gitignored - never commit
+# it). Plain KEY=VALUE lines:
+#   MESO_TRACKER_RECORD_PRICE_SECRET=...
+ENV_FILE = PROJECT_ROOT / ".env"
+
+
+def _read_env_file(path: Path) -> dict[str, str]:
+    """Parse a .env file's KEY=VALUE lines (blank lines and # comments
+    skipped, optional `export ` prefix and surrounding quotes stripped).
+    Read by hand rather than via python-dotenv so the collector has no
+    extra package to install on every machine."""
+    if not path.exists():
+        return {}
+    values = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.removeprefix("export ").split("=", 1)
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        values[key.strip()] = value
+    return values
+
+
+def _env(name: str) -> str | None:
+    """A setting from the real environment, else from the .env file, else
+    None. The real environment wins (the usual dotenv convention). The
+    file matters for the scheduled session task, which doesn't reliably
+    see an environment variable set after the last logon. Read fresh on
+    each call so a value set after import - e.g. by a test - takes effect."""
+    return os.environ.get(name) or _read_env_file(ENV_FILE).get(name) or None
+
+
+def get_record_price_secret() -> str | None:
+    """The shared secret Tracker's recordPrice mutation requires (sent as
+    the x-record-price-secret header - see Meso-Market-Tracker's
+    record_price_secret Terraform variable), from
+    MESO_TRACKER_RECORD_PRICE_SECRET - or None if it isn't set."""
+    return _env("MESO_TRACKER_RECORD_PRICE_SECRET")
 
 
 @dataclass(frozen=True)
