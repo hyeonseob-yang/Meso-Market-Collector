@@ -119,7 +119,7 @@ def test_build_price_payload_defaults_notes_to_empty_string():
 
 @pytest.fixture(autouse=True)
 def no_secret(monkeypatch):
-    # Never read this machine's real config/tracker.local.json or env var.
+    # Never read this machine's real .env file or environment variable.
     monkeypatch.setattr("meso_market_collector.api_client.get_record_price_secret", lambda: None)
 
 

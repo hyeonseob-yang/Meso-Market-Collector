@@ -93,8 +93,8 @@ def _post(url: str, payload: dict, timeout: float) -> dict:
         headers[RECORD_PRICE_SECRET_HEADER] = secret
     else:
         print(
-            "WARNING: no Tracker secret configured (config/tracker.local.json or "
-            "MESO_TRACKER_RECORD_PRICE_SECRET) - posting without one",
+            "WARNING: no Tracker secret configured "
+            "(MESO_TRACKER_RECORD_PRICE_SECRET, e.g. in .env) - posting without one",
             flush=True,
         )
     response = requests.post(url, json=payload, headers=headers, timeout=timeout)
