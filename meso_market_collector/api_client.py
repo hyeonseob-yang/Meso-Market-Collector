@@ -15,7 +15,9 @@ from datetime import datetime, timezone
 
 import requests
 
-from .config import get_tracker_api_url
+from .config import get_record_price_secret, get_tracker_api_url
+
+RECORD_PRICE_SECRET_HEADER = "x-record-price-secret"
 
 RECORD_PRICE_MUTATION = """
 mutation RecordPrice($price: PriceInput!) {
@@ -80,7 +82,22 @@ def build_price_payload(row: dict[str, int | None], collected_at: datetime | Non
 
 
 def _post(url: str, payload: dict, timeout: float) -> dict:
-    response = requests.post(url, json=payload, timeout=timeout)
+    # Tracker's recordPrice requires a shared secret in this header. With
+    # none configured the post is still attempted without it - it works
+    # against a Tracker that doesn't enforce the secret (yet), and fails
+    # loudly (HTTP or GraphQL error, raised below/by the caller) against
+    # one that does.
+    headers = {}
+    secret = get_record_price_secret()
+    if secret:
+        headers[RECORD_PRICE_SECRET_HEADER] = secret
+    else:
+        print(
+            "WARNING: no Tracker secret configured (config/tracker.local.json or "
+            "MESO_TRACKER_RECORD_PRICE_SECRET) - posting without one",
+            flush=True,
+        )
+    response = requests.post(url, json=payload, headers=headers, timeout=timeout)
     response.raise_for_status()
     return response.json()
 

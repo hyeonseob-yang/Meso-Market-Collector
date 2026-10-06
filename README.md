@@ -381,6 +381,14 @@ The row's collection time is sent with it as `datetime` (UTC), so a row
 posted late is still recorded at the time it was read; if Tracker's
 `PriceInput` doesn't have that field (yet), the rejected post is repeated
 once without it and Tracker stamps the row with its own insert time.
+Tracker's `recordPrice` requires a shared secret, sent as the
+`x-record-price-secret` header: put it in `config/tracker.local.json`
+(gitignored — never commit it) as `{"record_price_secret": "..."}`, on
+every machine that collects. The `MESO_TRACKER_RECORD_PRICE_SECRET`
+environment variable overrides the file, but the scheduled session task
+may not see a variable set after the last logon, so prefer the file there.
+With neither set, the row is posted without the header and a warning is
+logged.
 Like any other step, a failed request (via `requests`' `raise_for_status()`)
 stops
 the routine there, skipping the cleanup steps after it — same as an OCR

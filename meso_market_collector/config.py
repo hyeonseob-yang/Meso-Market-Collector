@@ -39,6 +39,28 @@ def get_tracker_api_url() -> str:
     return os.environ.get("MESO_TRACKER_API_URL", DEFAULT_TRACKER_API_URL)
 
 
+# Per-machine Tracker settings (gitignored via config/*.local.json) - holds
+# the shared secret, which must never be committed:
+#   {"record_price_secret": "..."}
+LOCAL_TRACKER_FILE = PROJECT_ROOT / "config" / "tracker.local.json"
+
+
+def get_record_price_secret() -> str | None:
+    """The shared secret Tracker's recordPrice mutation requires (sent as
+    the x-record-price-secret header - see Meso-Market-Tracker's
+    record_price_secret Terraform variable), or None if this machine has
+    none configured. MESO_TRACKER_RECORD_PRICE_SECRET wins if set;
+    otherwise it's read from config/tracker.local.json, which is the
+    dependable option for the scheduled session task (a task doesn't
+    reliably see an environment variable set after the last logon).
+    Resolved fresh on each call, like get_tracker_api_url."""
+    secret = os.environ.get("MESO_TRACKER_RECORD_PRICE_SECRET")
+    if not secret and LOCAL_TRACKER_FILE.exists():
+        with open(LOCAL_TRACKER_FILE, "r", encoding="utf-8") as f:
+            secret = json.load(f).get("record_price_secret")
+    return secret or None
+
+
 @dataclass(frozen=True)
 class Region:
     name: str
