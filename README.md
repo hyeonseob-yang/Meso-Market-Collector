@@ -40,7 +40,8 @@ collector all go through Scheduled Tasks that run elevated without a UAC
 prompt. From an **Administrator** PowerShell in the repo root:
 
 ```powershell
-if (-not (Test-Path .\.venv\Scripts\python.exe)) { throw "Run this from the repo root (an admin shell starts in system32): cd to the repo first" }
+cd C:\path\to\Meso-Market-Collector   # an admin shell starts in system32
+if (-not (Test-Path .\.venv\Scripts\python.exe)) { throw "Not the repo root - fix the cd line above" }
 
 $principal = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$env:USERNAME" -LogonType Interactive -RunLevel Highest
 $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date)
