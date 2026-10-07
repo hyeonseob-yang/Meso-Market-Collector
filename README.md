@@ -19,7 +19,7 @@ an hourly schedule, it builds a price history for analysis.
 ## Install
 
 ```powershell
-git clone <this-repo-url>
+git clone https://github.com/hyeonseob-yang/Meso-Market-Collector.git
 cd Meso-Market-Collector
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
@@ -37,11 +37,12 @@ Do these once per machine.
 
 The game runs elevated, so launching it, closing it, and running the
 collector all go through Scheduled Tasks that run elevated without a UAC
-prompt. From an **Administrator** PowerShell in the repo root:
+prompt. Open an **Administrator** PowerShell and `cd` to this repo's
+folder first — an admin shell starts in `C:\Windows\System32`. Then paste
+the whole block:
 
 ```powershell
-cd C:\path\to\Meso-Market-Collector   # an admin shell starts in system32
-if (-not (Test-Path .\.venv\Scripts\python.exe)) { throw "Not the repo root - fix the cd line above" }
+if (-not (Test-Path .\.venv\Scripts\python.exe)) { throw "Not in the repo folder - cd there first, then paste this again" }
 
 $principal = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$env:USERNAME" -LogonType Interactive -RunLevel Highest
 $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date)
