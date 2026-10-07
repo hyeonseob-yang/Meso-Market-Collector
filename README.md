@@ -342,6 +342,12 @@ above) with the Windows Python venv:
 python -m meso_market_collector.session --task-name "MesoMarketCollector_MapleStoryViaLauncher"
 ```
 
+Add `--notes manual` (or any text) to a hand-started run to have it saved
+in the row's Notes, in the CSV and on Tracker, so it can be told apart from
+the scheduled runs, which leave Notes blank. Starting the session task by
+hand (`schtasks /run`) runs the task's fixed command, so it can't carry a
+note — use the direct command above for a marked manual run.
+
 The launch task name is passed in each run rather than stored in config. Recorded
 prices are read via OCR
 ([`meso_market_collector/parser.py`](meso_market_collector/parser.py),

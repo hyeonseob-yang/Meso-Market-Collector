@@ -308,3 +308,26 @@ def test_save_price_row_leaves_notes_blank_for_a_plausible_row(saved_rows):
 
     assert saved_rows == [(_readings(buy_100m=427), "")]
     assert actions._last_saved_row["Notes"] == ""
+
+
+def test_save_price_row_records_the_runs_notes(saved_rows):
+    """A note given for the whole run (e.g. "manual", from session's
+    --notes) is saved with the row and sent to Tracker."""
+    actions = screen_actions.ScreenActions(notes="manual")
+    actions._readings = _readings(buy_100m=427)
+
+    actions.save_price_row()
+
+    assert saved_rows == [(_readings(buy_100m=427), "manual")]
+    assert actions._last_saved_row["Notes"] == "manual"
+
+
+def test_save_price_row_keeps_the_runs_notes_alongside_a_misread_note(saved_rows):
+    actions = screen_actions.ScreenActions(notes="manual")
+    actions._readings = _readings(buy_100m=42)
+
+    actions.save_price_row()
+
+    note = "manual; Possible OCR misread: Buy Buyout 100M=42"
+    assert saved_rows == [(_readings(buy_100m=42), note)]
+    assert actions._last_saved_row["Notes"] == note

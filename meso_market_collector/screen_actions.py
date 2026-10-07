@@ -36,6 +36,7 @@ class ScreenActions:
         confidence: float = 0.8,
         templates_dir: Path | None = None,
         hold_seconds: float = 0.05,
+        notes: str = "",
     ):
         self.poll_interval = poll_interval
         self.timeout = timeout
@@ -43,6 +44,9 @@ class ScreenActions:
         self.confidence = confidence
         self.templates_dir = templates_dir
         self.hold_seconds = hold_seconds
+        # Recorded in the Notes of every row this run saves (e.g. "manual",
+        # from session's --notes) - scheduled runs leave it blank.
+        self.notes = notes
         self._readings: dict[str, int | None] = {}
         self._last_saved_row: dict[str, int | None] = {}
         self._last_saved_at: datetime | None = None
@@ -283,10 +287,11 @@ class ScreenActions:
         # still completes and the suspect value is marked for checking
         # against its snapshot.
         suspect = find_implausible_prices(self._readings)
-        notes = ""
+        notes = self.notes
         if suspect:
-            notes = "Possible OCR misread: " + ", ".join(f"{c}={self._readings[c]}" for c in suspect)
-            print(f"WARNING: {notes} - doesn't fit the rest of the row; noted on the row", flush=True)
+            misread = "Possible OCR misread: " + ", ".join(f"{c}={self._readings[c]}" for c in suspect)
+            print(f"WARNING: {misread} - doesn't fit the rest of the row; noted on the row", flush=True)
+            notes = "; ".join(filter(None, [notes, misread]))
         append_price_row(self._readings, notes=notes)
         self._last_saved_row = {**self._readings, "Notes": notes}
         self._last_saved_at = datetime.now(timezone.utc)

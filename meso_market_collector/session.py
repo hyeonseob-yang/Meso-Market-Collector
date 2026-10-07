@@ -29,6 +29,12 @@ def main() -> None:
         default=DEFAULT_ROUTINE_PATH,
         help=f"Path to the routine step list (default: {DEFAULT_ROUTINE_PATH})",
     )
+    parser.add_argument(
+        "--notes",
+        default="",
+        help='Text saved in the row\'s Notes, in the CSV and on Tracker - e.g. "manual" '
+        "to tell a hand-started run from a scheduled one (which leaves it blank).",
+    )
     args = parser.parse_args()
 
     # The game runs elevated (via the launch task), and Windows silently
@@ -43,7 +49,7 @@ def main() -> None:
         )
 
     steps = load_steps(args.routine)
-    actions = ScreenActions()
+    actions = ScreenActions(notes=args.notes)
     run_routine(steps, task_name=args.task_name, actions=actions)
 
 
