@@ -1,12 +1,7 @@
 """Turn a captured screen region into a price value via OCR.
 
-Split into two pieces on purpose:
-  - `_parse_price_text` is pure text-in/number-out logic - unit-testable
-    with no OCR engine involved.
-  - `parse_price` calls the actual OCR engine (pytesseract, needing the
-    real Tesseract binary installed - see requirements.txt/README) and is
-    untested directly here, same as capture.py/screen_actions.py: it needs
-    a real environment, verified live rather than in this test suite.
+`parse_price` needs the real Tesseract binary (see README), so it's
+verified live; the text and plausibility logic around it is unit-tested.
 """
 from __future__ import annotations
 
@@ -21,30 +16,21 @@ except ImportError:
     pytesseract = None
 else:
     if shutil.which("tesseract") is None:
-        # Not on PATH (common right after installing - the installer's
-        # PATH update needs a fresh shell to take effect). Fall back to
-        # the default Windows install location rather than requiring
-        # everyone to configure this by hand.
+        # Not on PATH (common right after installing): fall back to the
+        # default Windows install location.
         _default_windows_path = Path(r"C:\Program Files\Tesseract-OCR\tesseract.exe")
         if _default_windows_path.exists():
             pytesseract.pytesseract.tesseract_cmd = str(_default_windows_path)
 
-# Meso prices are always whole numbers; restrict Tesseract to digits and a
-# few OCR-noise-prone punctuation marks so it doesn't guess at letters that
-# happen to look like digits (e.g. reading "O" as a letter instead of 0).
+# Digits and separators only, so Tesseract can't read a 0 as the letter O.
 _TESSERACT_CONFIG = "--psm 7 -c tessedit_char_whitelist=0123456789,."
 
-# Price boxes are small (~20px tall) grey-on-grey text, which Tesseract
-# misreads fed raw (e.g. 408 as 405). Grayscale + 3x upscale read every
-# sample correctly; inverting or thresholding as well did worse, breaking
-# up the digits.
+# The ~20px-tall grey-on-grey digits are misread at native size (408 as
+# 405). Inverting or thresholding as well did worse.
 _UPSCALE = 3
 
 # Tesseract needs clear space around the text: with digits touching the
-# crop's top edge (a region box set a few pixels low) it dropped a trailing
-# 7 - 417 read as 41, 427 as 42 - which is still a valid number, so it got
-# recorded and posted. Padding with the box's own background colour before
-# OCR read all of those correctly, so a slightly-off box no longer matters.
+# crop's edge it dropped a trailing 7 (427 read as 42).
 _PADDING = 6
 
 
@@ -58,11 +44,9 @@ def _prepare_image(image: Image.Image) -> Image.Image:
 
 
 def _parse_price_text(text: str) -> int | None:
-    """Turn raw OCR output into a price, or None if it doesn't cleanly
-    parse as one. Deliberately conservative: garbage in means None out,
-    not a best-effort guess - a wrong recorded price is worse than a
-    missing one (the raw snapshot is kept either way, see storage.py).
-    Returns an int, not a float - meso prices are always whole numbers."""
+    """Turn raw OCR output into a whole-number price, or None if it
+    doesn't cleanly parse - a wrong recorded price is worse than a missing
+    one."""
     text = text.strip()
     if not text:
         return None
@@ -76,22 +60,18 @@ def _parse_price_text(text: str) -> int | None:
 _BUY_TIERS = ("Buy Buyout 100M", "Buy Buyout 1B", "Buy Buyout 10B")
 _SELL_TIERS = ("Sell Buyout 100M", "Sell Buyout 1B", "Sell Buyout 10B")
 
-# Same-side tiers (100M/1B/10B) sit within a few points of each other;
-# 10% apart means a misread. Deliberately not applied across sides: a real
-# spike had Buy 480 vs Sell 413, a 16% gap.
+# Same-side tiers sit within a few points of each other. Not applied
+# across sides: a real spike had Buy 480 vs Sell 413, a 16% gap.
 _MAX_TIER_DEVIATION = 0.10
 
 
 def find_implausible_prices(row: dict[str, int | None]) -> list[str]:
     """Return the columns of `row` whose value is almost certainly an OCR
-    misread, even though it parsed as a clean number - e.g. a 100M box read
-    as 42 when it showed 427 (a trailing 7 dropped by a tight crop), which
-    happened on 13 hourly runs in Oct 2026. Two rules:
+    misread despite parsing as a number (e.g. 427 read as 42). Two rules:
       - under half or over double the median of all the row's prices (a
         dropped or extra digit);
       - more than 10% from the median of its own side's three tiers.
-    Missing (None) values are ignored - those are already handled as
-    unreadable."""
+    Missing (None) values are ignored."""
     def median(values):
         values = sorted(values)
         mid = len(values) // 2

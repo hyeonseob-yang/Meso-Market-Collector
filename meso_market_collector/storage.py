@@ -10,15 +10,12 @@ from PIL import Image
 
 from .config import CSV_PATH, DATA_DIR, REGION_READINGS_CSV_PATH
 
-# Matches the "<item>_<timestamp>.png" naming save_snapshot uses, e.g.
-# "sell_meso_average_20260828T103454672715.png" - captures just the
-# timestamp portion (%Y%m%dT%H%M%S%f).
+# Captures the timestamp from save_snapshot's "<item>_<timestamp>.png".
 _SNAPSHOT_TIMESTAMP_RE = re.compile(r"_(\d{8}T\d{12})\.png$")
 
 REGION_READING_FIELDNAMES = ["timestamp", "item", "price"]
 
-# Matches the columns of the hand-maintained price sheet this output feeds
-# (kept outside the repo) - one row per collection run, not per box.
+# One row per collection run, matching the hand-maintained price sheet.
 PRICE_ROW_FIELDNAMES = [
     "Date",
     "Average",
@@ -38,15 +35,9 @@ def append_price_row(
     timestamp: str | None = None,
     notes: str = "",
 ) -> None:
-    """Append one wide-format row (see PRICE_ROW_FIELDNAMES) - one row per
-    collection run. `row` should already have PRICE_ROW_FIELDNAMES'
-    price columns as keys (e.g. "Average", "Buy Buyout 100M") - see
-    ScreenActions.record_prices, which captures directly under these
-    names. Date (local time, matching the template's hand-entered
-    convention - not the UTC timestamps append_region_reading uses) is
-    filled in automatically unless a `timestamp` is given (mainly for
-    tests). `notes` goes in the Notes column - blank unless the caller has
-    something to flag about the row (see ScreenActions.save_price_row)."""
+    """Append one row per collection run. `row` is keyed by
+    PRICE_ROW_FIELDNAMES' price columns. Date is the current local time
+    (the price sheet's convention, not UTC) unless `timestamp` is given."""
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     is_new = not csv_path.exists()
     if timestamp is None:
@@ -61,10 +52,8 @@ def append_price_row(
 
 
 def append_region_reading(item: str, price: float | None, csv_path: Path = REGION_READINGS_CSV_PATH) -> None:
-    """Append one row per captured region (flat, one row per box) - used by
-    the generic collect.py entrypoint, which captures arbitrary configured
-    regions without a sell/buy-tab concept. See append_price_row for the
-    main session's wide, per-run output (PRICE_ROW_FIELDNAMES)."""
+    """Append one row per captured region - collect.py's flat output, as
+    opposed to append_price_row's one row per run."""
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     is_new = not csv_path.exists()
     with open(csv_path, "a", newline="", encoding="utf-8") as f:
@@ -92,12 +81,9 @@ def save_snapshot(item: str, image: Image.Image, snapshot_dir: Path = DATA_DIR /
 def clear_old_snapshots(
     max_age_days: float, snapshot_dir: Path = DATA_DIR / "snapshots", now: datetime | None = None
 ) -> list[Path]:
-    """Delete snapshot PNGs older than `max_age_days`, going by the
-    timestamp embedded in each filename (see save_snapshot) rather than
-    filesystem mtime, which copying/backing up a file could reset.
-    Anything not matching that naming is left alone. Returns the paths
-    that were actually deleted, for logging/testing. `now` is mainly for
-    tests - defaults to the current UTC time."""
+    """Delete snapshot PNGs older than `max_age_days` and return their
+    paths. Age comes from the timestamp in the filename, not file mtime,
+    which a copy or backup could reset; other files are left alone."""
     if now is None:
         now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=max_age_days)

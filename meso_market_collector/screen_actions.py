@@ -1,7 +1,7 @@
 """Real screen/process I/O backing routine.GameActions.
 
-Untested directly (needs an actual display and the real game), by design —
-see routine.py for the testable dispatch logic this implements for.
+Needs a real display and game; tests swap in fakes (see
+tests/test_screen_actions.py).
 """
 from __future__ import annotations
 
@@ -44,8 +44,7 @@ class ScreenActions:
         self.confidence = confidence
         self.templates_dir = templates_dir
         self.hold_seconds = hold_seconds
-        # Recorded in the Notes of every row this run saves (e.g. "manual",
-        # from session's --notes) - scheduled runs leave it blank.
+        # Saved in the Notes of every row this run records (e.g. "manual").
         self.notes = notes
         self._readings: dict[str, int | None] = {}
         self._last_saved_row: dict[str, int | None] = {}
@@ -53,21 +52,12 @@ class ScreenActions:
         self._focus_target = None  # set by focus_window
 
     def _locate(self, template: str, confidence: float | None = None):
-        # locateOnScreen raises ImageNotFoundException rather than
-        # returning None when nothing matches - treat that the same as
-        # "not found yet" so callers' retry loops actually get to retry,
-        # instead of crashing on the very first failed check.
-        # An explicit templates_dir is used as-is; otherwise each template
-        # comes from assets/templates.local/ if this machine has its own
-        # copy, else the shared assets/templates/ (see get_template_path).
+        # Returns None when nothing matches (locateOnScreen raises instead),
+        # so callers' polling loops can retry.
         path = self.templates_dir / template if self.templates_dir else get_template_path(template)
         try:
-            # grayscale=False: pyscreeze matches in grayscale by default,
-            # where elements that differ mainly by color look the same -
-            # the teal "Request Sale" and green "Request Purchase" buttons
-            # cross-matched at ~0.85 (vs ~0.47 in color), so the Sell-tab
-            # check passed on the Buy tab and Buy prices got recorded as
-            # Sell.
+            # grayscale=False: in grayscale the Sell and Buy tab buttons,
+            # which differ mainly by color, match each other.
             return pyautogui.locateOnScreen(
                 str(path),
                 confidence=confidence if confidence is not None else self.confidence,
@@ -80,30 +70,17 @@ class ScreenActions:
         subprocess.run(["schtasks", "/run", "/tn", task_name], check=True)
 
     def launch(self, task_name: str) -> None:
-        # Runs a pre-configured Scheduled Task (RunLevel: Highest) rather
-        # than the exe directly - a UAC prompt neither a scheduled task nor
-        # the RunAsInvoker env var could suppress when starting the game
-        # exe's usual way (it's explicitly elevated by its caller, not just
-        # manifest-declared). The task instead runs the official launcher
-        # with its own "jump straight to this game" argument (e.g.
-        # nxl://launch/10100), matching a normal desktop shortcut's
-        # behavior. See README.md for more.
+        # Via an elevated Scheduled Task, not the exe directly, to avoid a
+        # UAC prompt - see README, "Why a Scheduled Task".
         self._run_scheduled_task(task_name)
 
     def run_task(self, task_name: str) -> None:
-        # Generic version of the same mechanism as launch() - runs any
-        # other pre-configured Scheduled Task. Used to close the game: the
-        # process runs elevated (from launch's task), so a normal-integrity
-        # taskkill/Stop-Process can't touch it (Access is denied). A second
-        # elevated task (e.g. running `taskkill /F /IM MapleStory.exe`)
-        # works regardless of whether this script itself is elevated.
+        # Used to close the game: it runs elevated, so only an elevated
+        # task's taskkill can end it.
         self._run_scheduled_task(task_name)
 
     def wait_for_process_exit(self, processes: list[str]) -> None:
-        # schtasks /run returns as soon as a task starts, not when it's
-        # done - so after a kill task, poll until the processes are really
-        # gone. tasklist sees elevated processes' names even from a
-        # non-elevated caller (it just can't touch them).
+        # schtasks /run returns when a task starts, not when it finishes.
         deadline = time.monotonic() + self.timeout
         while time.monotonic() < deadline:
             running = [p for p in processes if self._is_running(p)]
@@ -141,16 +118,13 @@ class ScreenActions:
         return None
 
     def _save_timeout_screenshot(self, template: str) -> None:
-        # A timeout means the screen wasn't what the routine expected - keep
-        # what it actually was, since an unattended run has no one watching.
-        # Lands in data/snapshots/, so clear_old_snapshots cleans it up too.
+        # Shows what was on screen when an unattended run gave up.
         path = save_snapshot(f"timeout_{Path(template).stem}", pyautogui.screenshot())
         print(f"Saved a screenshot of the timeout to {path}", flush=True)
 
     def wait_for_stable_image(self, template: str):
-        """Wait until the template is found in the same place for
-        `stable_seconds` straight - a rough stand-in for "has finished
-        appearing/animating in and is now safe to click"."""
+        """Wait until the template stays found for `stable_seconds` - i.e.
+        it has finished animating in and is safe to click."""
         deadline = time.monotonic() + self.timeout
         stable_since = None
         while time.monotonic() < deadline:
@@ -173,19 +147,16 @@ class ScreenActions:
     def click_image_if_present(
         self, template: str, seconds: float = 10.0, confidence: float | None = None
     ) -> None:
-        """Click `template` if it shows up within `seconds`; otherwise just
-        carry on. For a click that's only sometimes needed - e.g. the
-        unselected Sell tab, which is only there to click when the market
-        opened on the Buy tab."""
+        """Click `template` if it shows up within `seconds`; otherwise carry
+        on. For a click that's only sometimes needed, e.g. the Sell tab
+        when the market opened on the Buy tab."""
         box = self._poll_for(template, seconds, confidence)
         if box:
             self._click_box(box)
 
     def _click_box(self, box) -> None:
-        # Held rather than pyautogui.click(): games poll input state once
-        # per frame, and click()'s back-to-back down/up falls between polls
-        # and never registers (confirmed in both Terraria and MapleStory -
-        # mouse movement still registers either way, since it's continuous).
+        # Held, not pyautogui.click(): games poll input once per frame and
+        # miss an instant down/up.
         self._ensure_focus()
         pyautogui.moveTo(pyautogui.center(box))
         pyautogui.mouseDown(_pause=False)
@@ -193,12 +164,9 @@ class ScreenActions:
         pyautogui.mouseUp()
 
     def _ensure_focus(self) -> None:
-        """Before a click, bring back the window focus_window last focused
-        if something else has taken focus since (e.g. a window switch
-        mid-run) - and refuse to click at all if that fails, rather than
-        clicking into whatever window is on top instead. Compared by
-        window handle, not title, so e.g. a browser tab with "MapleStory"
-        in its title never counts."""
+        """Refocus the game window if something else took focus, and refuse
+        to click if that fails rather than click into another window.
+        Compared by window handle, since other windows can share the title."""
         if self._focus_target is None or gw.getActiveWindow() == self._focus_target:
             return
         if not self._activate(self._focus_target):
@@ -215,12 +183,10 @@ class ScreenActions:
         attempts: int = 3,
         retry_seconds: float = 20.0,
     ) -> None:
-        """Click `template`, then wait for `until` to appear - re-clicking
-        (if `template` is still showing) every `retry_seconds`, up to
-        `attempts` clicks in total, in case a click didn't take (e.g. the
-        game wasn't ready for input yet). After the last attempt, falls
-        back to a normal wait_for_image, printing `message` so someone can
-        finish the step by hand."""
+        """Click `template`, then wait for `until`, re-clicking every
+        `retry_seconds` (up to `attempts` clicks) while `template` is still
+        showing. After the last click, waits normally, printing `message`
+        so the step can be finished by hand."""
         box = self.wait_for_image(template, confidence=confidence)
         self._record_click(template, 1)
         self._click_box(box)
@@ -242,10 +208,8 @@ class ScreenActions:
         print(f"{until!r} appeared after click {clicks}", flush=True)
 
     def _record_click(self, template: str, n: int) -> None:
-        # Diagnostic: the first Log In click sometimes doesn't take while a
-        # retry does, even with the game focused and no consistent timing
-        # pattern - so keep what the screen looked like right before each
-        # click, to compare a missed one against one that worked.
+        # Diagnostic for clicks that sometimes don't register: keeps the
+        # screen as it was just before each one, for comparison.
         path = save_snapshot(f"click{n}_{Path(template).stem}", pyautogui.screenshot())
         active = gw.getActiveWindow()
         print(
@@ -259,33 +223,22 @@ class ScreenActions:
         self.click_image(template)
 
     def record_prices(self, regions: dict[str, str]) -> None:
-        # `regions` maps a configured region name to the exact output label
-        # to record it under (e.g. "meso_2" -> "Sell Buyout 100M") - the
-        # label goes straight into self._readings under the same name
-        # save_price_row() will use as the final CSV column, so no
-        # separate remapping step is needed afterward. Accumulated here
-        # rather than written immediately, since a full row combines
-        # readings from both the Sell and Buy tab captures.
+        # `regions` maps a region name to the CSV column to record it
+        # under. Readings accumulate until save_price_row, since one row
+        # combines the Sell and Buy tabs.
         regions_by_name = {r.name: r for r in load_regions()}
         for name, label in regions.items():
             region = regions_by_name[name]
             image = capture_region(region)
             price = parse_price(image)
-            # Saved every time, not just when parsing fails, with the OCR
-            # result in the filename - a misread digit (e.g. 3 vs 6) still
-            # parses fine, so the only way to catch one is to compare the
-            # crop against what was recorded.
+            # Saved every time, named with the OCR result: a misread digit
+            # still parses, so the crop is the only way to check it.
             save_snapshot(f"{label}_{price if price is not None else 'unreadable'}", image)
             self._readings[label] = price
 
     def save_price_row(self) -> None:
-        # A misread that still parses as a number (e.g. 427 read as 42)
-        # looks like any other price in the CSV and on Tracker. Rather
-        # than blank it - which made post_price_row refuse the row and
-        # fail the whole run - keep the value as read and flag it in the
-        # row's Notes (saved to the CSV and sent to Tracker), so the run
-        # still completes and the suspect value is marked for checking
-        # against its snapshot.
+        # A suspect price is kept as read and flagged in Notes, not
+        # blanked - a blank would make post_price_row refuse the row.
         suspect = find_implausible_prices(self._readings)
         notes = self.notes
         if suspect:
@@ -298,19 +251,15 @@ class ScreenActions:
         self._readings = {}
 
     def post_price_row(self) -> None:
-        # Sends whatever save_price_row most recently wrote to the CSV -
-        # not self._readings, which save_price_row has already cleared by
-        # the time this runs (see routine.json, where this step follows
-        # save_price_row) - along with when it was saved, so Tracker
-        # records the collection time rather than the posting time.
+        # Sends the last saved row with its collection time, so Tracker
+        # doesn't record the posting time instead.
         post_price_row_api(self._last_saved_row, collected_at=self._last_saved_at)
 
     def clear_old_snapshots(self, max_age_days: float) -> None:
         clear_old_snapshots(max_age_days)
 
     def press_key(self, key: str) -> None:
-        # Held for the same reason as click_image - pyautogui.press() taps
-        # too briefly for the game to see.
+        # Held, like clicks - see _click_box.
         self.hotkey([key])
 
     def hotkey(self, keys: list[str]) -> None:
@@ -322,36 +271,25 @@ class ScreenActions:
         time.sleep(pyautogui.PAUSE)
 
     def wait_for_user(self, message: str) -> None:
-        # A manual checkpoint: print what to do, block until Enter confirms
-        # it's done, then resume the automated parts.
         input(f"\n{message}\n(press Enter to continue) ")
 
     def wait(self, seconds: float) -> None:
-        # A fixed pause, for when something is visible before it's usable -
-        # e.g. the Log In button shows before the game accepts clicks, and a
-        # click-and-retry doesn't work there: the missed click leaves the
-        # cursor hovering the button, whose hover look no longer matches its
-        # template, so the retry can't find it to click again.
+        # For something visible before it's usable, where click-and-retry
+        # fails: a missed click leaves the cursor hovering the button, and
+        # its hover look no longer matches the template.
         time.sleep(seconds)
 
     def focus_window(self, window_title: str) -> bool:
-        # A click's first hit on an unfocused window can just activate it
-        # rather than actually registering on whatever's underneath the
-        # cursor - bring it to the foreground explicitly first so every
-        # click_image afterward lands for real. Also needed before any
-        # wait_for_image on the game: screenshots only see what's on top,
-        # so a game window behind e.g. the terminal never matches. Polls
-        # for the window since, run right after launch, the game may not
-        # have created it yet.
+        # Needed before clicks (a click on an unfocused window may only
+        # activate it) and before image waits (screenshots only see what's
+        # on top). Polls because the window may not exist yet after launch.
         deadline = time.monotonic() + self.timeout
         while not (windows := gw.getWindowsWithTitle(window_title)):
             if time.monotonic() >= deadline:
                 raise TimeoutError(f"Timed out waiting for a window with title containing {window_title!r}")
             time.sleep(self.poll_interval)
         window = windows[0]
-        # Remembered so every later click can make sure it's still this
-        # window that has focus - see _ensure_focus.
-        self._focus_target = window
+        self._focus_target = window  # for _ensure_focus
         return self._activate(window)
 
     def _activate(self, window) -> bool:
@@ -359,18 +297,15 @@ class ScreenActions:
             window.restore()
         for attempt in range(3):
             if attempt:
-                # Windows refuses to hand focus to a window when the
-                # requesting process wasn't the last to receive input
-                # (the "foreground lock") - a held Alt press makes this
-                # process that one, so the next activate() is allowed.
+                # A held Alt gets past Windows' foreground lock, which
+                # blocks focus changes from a process that wasn't the last
+                # to receive input.
                 self.hotkey(["alt"])
             try:
                 window.activate()
             except gw.PyGetWindowException as exc:
-                # pygetwindow's activate() raises even when the underlying
-                # Windows call actually succeeded - a known false positive.
-                # "Error code from Windows: 0" literally means no error
-                # occurred, so only re-raise for an actual nonzero code.
+                # pygetwindow raises on success too: "Error code from
+                # Windows: 0" means no error.
                 if "Error code from Windows: 0" not in str(exc):
                     raise
             time.sleep(0.3)
