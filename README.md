@@ -40,6 +40,8 @@ collector all go through Scheduled Tasks that run elevated without a UAC
 prompt. From an **Administrator** PowerShell in the repo root:
 
 ```powershell
+if (-not (Test-Path .\.venv\Scripts\python.exe)) { throw "Run this from the repo root (an admin shell starts in system32): cd to the repo first" }
+
 $principal = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$env:USERNAME" -LogonType Interactive -RunLevel Highest
 $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date)
 
