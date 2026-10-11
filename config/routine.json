@@ -18,7 +18,7 @@
   {"action": "record_prices", "regions": {"meso_100m": "Buy Buyout 100M", "meso_1b": "Buy Buyout 1B", "meso_10b": "Buy Buyout 10B"}},
   {"action": "save_price_row"},
   {"action": "post_price_row"},
-  {"action": "clear_old_snapshots", "max_age_days": 7},
+  {"action": "clear_old_snapshots", "max_age_days": 7, "failure_max_age_days": 90},
   {"action": "run_task", "task_name": "MesoMarketCollector_KillMapleStory"},
   {"action": "run_task", "task_name": "MesoMarketCollector_KillNexonLauncher"}
 ]

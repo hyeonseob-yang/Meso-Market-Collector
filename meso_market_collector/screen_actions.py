@@ -14,7 +14,7 @@ from .api_client import post_price_row as post_price_row_api
 from .capture import capture_region
 from .config import get_template_path, load_regions
 from .parser import find_implausible_prices, parse_price
-from .storage import append_price_row, clear_old_snapshots, save_snapshot
+from .storage import FAILURE_SNAPSHOT_PREFIX, append_price_row, clear_old_snapshots, save_snapshot
 
 try:
     import pyautogui
@@ -119,7 +119,7 @@ class ScreenActions:
 
     def _save_timeout_screenshot(self, template: str) -> None:
         # Shows what was on screen when an unattended run gave up.
-        path = save_snapshot(f"timeout_{Path(template).stem}", pyautogui.screenshot())
+        path = save_snapshot(f"{FAILURE_SNAPSHOT_PREFIX}{Path(template).stem}", pyautogui.screenshot())
         print(f"Saved a screenshot of the timeout to {path}", flush=True)
 
     def wait_for_stable_image(self, template: str):
@@ -255,8 +255,8 @@ class ScreenActions:
         # doesn't record the posting time instead.
         post_price_row_api(self._last_saved_row, collected_at=self._last_saved_at)
 
-    def clear_old_snapshots(self, max_age_days: float) -> None:
-        clear_old_snapshots(max_age_days)
+    def clear_old_snapshots(self, max_age_days: float, failure_max_age_days: float | None = None) -> None:
+        clear_old_snapshots(max_age_days, failure_max_age_days=failure_max_age_days)
 
     def press_key(self, key: str) -> None:
         # Held, like clicks - see _click_box.

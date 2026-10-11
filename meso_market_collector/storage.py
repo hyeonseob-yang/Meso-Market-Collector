@@ -13,6 +13,9 @@ from .config import CSV_PATH, DATA_DIR, REGION_READINGS_CSV_PATH
 # Captures the timestamp from save_snapshot's "<item>_<timestamp>.png".
 _SNAPSHOT_TIMESTAMP_RE = re.compile(r"_(\d{8}T\d{12})\.png$")
 
+# Names the full screenshot saved when a screen check gives up.
+FAILURE_SNAPSHOT_PREFIX = "timeout_"
+
 REGION_READING_FIELDNAMES = ["timestamp", "item", "price"]
 
 # One row per collection run, matching the hand-maintained price sheet.
@@ -79,14 +82,21 @@ def save_snapshot(item: str, image: Image.Image, snapshot_dir: Path = DATA_DIR /
 
 
 def clear_old_snapshots(
-    max_age_days: float, snapshot_dir: Path = DATA_DIR / "snapshots", now: datetime | None = None
+    max_age_days: float,
+    snapshot_dir: Path = DATA_DIR / "snapshots",
+    now: datetime | None = None,
+    failure_max_age_days: float | None = None,
 ) -> list[Path]:
     """Delete snapshot PNGs older than `max_age_days` and return their
     paths. Age comes from the timestamp in the filename, not file mtime,
-    which a copy or backup could reset; other files are left alone."""
+    which a copy or backup could reset; other files are left alone.
+    Failure screenshots (FAILURE_SNAPSHOT_PREFIX) are kept for
+    `failure_max_age_days` instead, when given: they're the only record of
+    what a rare failed run saw."""
     if now is None:
         now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=max_age_days)
+    failure_cutoff = cutoff if failure_max_age_days is None else now - timedelta(days=failure_max_age_days)
     deleted: list[Path] = []
     if not snapshot_dir.exists():
         return deleted
@@ -95,7 +105,7 @@ def clear_old_snapshots(
         if not match:
             continue
         taken_at = datetime.strptime(match.group(1), "%Y%m%dT%H%M%S%f").replace(tzinfo=timezone.utc)
-        if taken_at < cutoff:
+        if taken_at < (failure_cutoff if path.name.startswith(FAILURE_SNAPSHOT_PREFIX) else cutoff):
             path.unlink()
             deleted.append(path)
     return deleted

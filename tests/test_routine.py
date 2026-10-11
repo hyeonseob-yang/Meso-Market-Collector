@@ -446,3 +446,32 @@ def test_run_routine_rejects_unknown_action():
 
     with pytest.raises(ValueError, match="Unknown action"):
         run_routine([Step(action="teleport")], task_name="x", actions=actions)
+
+
+def test_run_routine_passes_failure_max_age_days_to_clear_old_snapshots():
+    calls = []
+
+    class Actions(FakeActions):
+        def clear_old_snapshots(self, max_age_days, **limits):
+            calls.append((max_age_days, limits))
+
+    run_routine(
+        [Step(action="clear_old_snapshots", max_age_days=7, failure_max_age_days=90)],
+        task_name="x",
+        actions=Actions(),
+    )
+
+    assert calls == [(7, {"failure_max_age_days": 90})]
+
+
+def test_real_routine_keeps_failure_screenshots_longer_than_ordinary_snapshots():
+    """Guards config/routine.json: failure screenshots must outlive the
+    7-day snapshots, or a rare failure (e.g. on a patch day) is gone before
+    anyone looks."""
+    from pathlib import Path
+
+    steps = load_steps(Path(__file__).resolve().parent.parent / "config" / "routine.json")
+    (cleanup,) = [s for s in steps if s.action == "clear_old_snapshots"]
+
+    assert cleanup.failure_max_age_days is not None
+    assert cleanup.failure_max_age_days > cleanup.max_age_days

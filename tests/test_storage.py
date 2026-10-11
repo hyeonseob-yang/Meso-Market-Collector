@@ -159,3 +159,41 @@ def test_append_price_row_writes_notes(tmp_path):
 
     assert row["Buy Buyout 100M"] == "42"
     assert row["Notes"] == "Possible OCR misread: Buy Buyout 100M=42"
+
+
+def _timeout_screenshot(tmp_path, taken_at):
+    path = tmp_path / _snapshot_filename("timeout_quick_move_button", taken_at)
+    path.write_bytes(b"fake png")
+    return path
+
+
+def test_clear_old_snapshots_keeps_failure_screenshots_for_their_own_longer_limit(tmp_path):
+    """A timeout screenshot is the only record of what a failed run saw (e.g.
+    the screen on a patch day), so it outlives the ordinary snapshots."""
+    now = datetime(2026, 3, 1, tzinfo=timezone.utc)
+    month_old_failure = _timeout_screenshot(tmp_path, datetime(2026, 2, 1, tzinfo=timezone.utc))
+    month_old_price = tmp_path / _snapshot_filename("Average_406", datetime(2026, 2, 1, tzinfo=timezone.utc))
+    month_old_price.write_bytes(b"fake png")
+
+    deleted = clear_old_snapshots(max_age_days=7, snapshot_dir=tmp_path, now=now, failure_max_age_days=90)
+
+    assert deleted == [month_old_price]
+    assert month_old_failure.exists()
+
+
+def test_clear_old_snapshots_deletes_failure_screenshots_past_their_own_limit(tmp_path):
+    now = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    ancient_failure = _timeout_screenshot(tmp_path, datetime(2026, 2, 1, tzinfo=timezone.utc))
+
+    deleted = clear_old_snapshots(max_age_days=7, snapshot_dir=tmp_path, now=now, failure_max_age_days=90)
+
+    assert deleted == [ancient_failure]
+
+
+def test_clear_old_snapshots_treats_failure_screenshots_like_any_other_without_a_separate_limit(tmp_path):
+    now = datetime(2026, 3, 1, tzinfo=timezone.utc)
+    month_old_failure = _timeout_screenshot(tmp_path, datetime(2026, 2, 1, tzinfo=timezone.utc))
+
+    deleted = clear_old_snapshots(max_age_days=7, snapshot_dir=tmp_path, now=now)
+
+    assert deleted == [month_old_failure]

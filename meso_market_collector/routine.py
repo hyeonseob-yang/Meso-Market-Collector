@@ -24,6 +24,7 @@ class Step:
     task_name: str | None = None
     message: str | None = None
     max_age_days: float | None = None
+    failure_max_age_days: float | None = None
     confidence: float | None = None
     processes: list[str] | None = None
     until: str | None = None
@@ -71,7 +72,7 @@ class GameActions(Protocol):
     def wait(self, seconds: float) -> None: ...
     def save_price_row(self) -> None: ...
     def post_price_row(self) -> None: ...
-    def clear_old_snapshots(self, max_age_days: float) -> None: ...
+    def clear_old_snapshots(self, max_age_days: float, failure_max_age_days: float | None = None) -> None: ...
 
 
 def run_routine(steps: list[Step], task_name: str, actions: GameActions) -> None:
@@ -121,6 +122,10 @@ def run_routine(steps: list[Step], task_name: str, actions: GameActions) -> None
         elif step.action == "post_price_row":
             actions.post_price_row()
         elif step.action == "clear_old_snapshots":
-            actions.clear_old_snapshots(step.max_age_days)
+            # Only passed when set, so the implementation's default applies.
+            limits = (
+                {} if step.failure_max_age_days is None else {"failure_max_age_days": step.failure_max_age_days}
+            )
+            actions.clear_old_snapshots(step.max_age_days, **limits)
         else:
             raise ValueError(f"Unknown action: {step.action!r}")

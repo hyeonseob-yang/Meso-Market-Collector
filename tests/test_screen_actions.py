@@ -331,3 +331,14 @@ def test_save_price_row_keeps_the_runs_notes_alongside_a_misread_note(saved_rows
     note = "manual; Possible OCR misread: Buy Buyout 100M=42"
     assert saved_rows == [(_readings(buy_100m=42), note)]
     assert actions._last_saved_row["Notes"] == note
+
+
+def test_clear_old_snapshots_passes_the_failure_limit_through(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        screen_actions, "clear_old_snapshots", lambda max_age_days, **limits: calls.append((max_age_days, limits))
+    )
+
+    screen_actions.ScreenActions().clear_old_snapshots(7, failure_max_age_days=90)
+
+    assert calls == [(7, {"failure_max_age_days": 90})]

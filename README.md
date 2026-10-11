@@ -173,6 +173,9 @@ leave Notes blank.
 - **`data/snapshots/`** — the image of every price box, named with the
   value OCR read (e.g. `Average_406_<timestamp>.png`), for checking a
   reading. Deleted after 7 days (`max_age_days` in `config/routine.json`).
+  The full-screen `timeout_…png` screenshots saved when a run fails are
+  kept for 90 days (`failure_max_age_days`), so a rare failure, such as on
+  a patch day, can still be examined later.
 - **`data/session.log`** — the log of every run started through the
   session task.
 
