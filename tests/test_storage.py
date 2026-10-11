@@ -168,8 +168,6 @@ def _timeout_screenshot(tmp_path, taken_at):
 
 
 def test_clear_old_snapshots_keeps_failure_screenshots_for_their_own_longer_limit(tmp_path):
-    """A timeout screenshot is the only record of what a failed run saw (e.g.
-    the screen on a patch day), so it outlives the ordinary snapshots."""
     now = datetime(2026, 3, 1, tzinfo=timezone.utc)
     month_old_failure = _timeout_screenshot(tmp_path, datetime(2026, 2, 1, tzinfo=timezone.utc))
     month_old_price = tmp_path / _snapshot_filename("Average_406", datetime(2026, 2, 1, tzinfo=timezone.utc))

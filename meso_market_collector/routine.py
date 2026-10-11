@@ -122,7 +122,6 @@ def run_routine(steps: list[Step], task_name: str, actions: GameActions) -> None
         elif step.action == "post_price_row":
             actions.post_price_row()
         elif step.action == "clear_old_snapshots":
-            # Only passed when set, so the implementation's default applies.
             limits = (
                 {} if step.failure_max_age_days is None else {"failure_max_age_days": step.failure_max_age_days}
             )

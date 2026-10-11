@@ -465,9 +465,6 @@ def test_run_routine_passes_failure_max_age_days_to_clear_old_snapshots():
 
 
 def test_real_routine_keeps_failure_screenshots_longer_than_ordinary_snapshots():
-    """Guards config/routine.json: failure screenshots must outlive the
-    7-day snapshots, or a rare failure (e.g. on a patch day) is gone before
-    anyone looks."""
     from pathlib import Path
 
     steps = load_steps(Path(__file__).resolve().parent.parent / "config" / "routine.json")
