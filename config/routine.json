@@ -1,4 +1,5 @@
 [
+  {"action": "record_leftovers", "processes": ["MapleStory.exe", "nexon_client.exe"]},
   {"action": "run_task", "task_name": "MesoMarketCollector_KillMapleStory"},
   {"action": "run_task", "task_name": "MesoMarketCollector_KillNexonLauncher"},
   {"action": "wait_for_process_exit", "processes": ["MapleStory.exe", "nexon_client.exe", "nexon_runtime.exe"]},

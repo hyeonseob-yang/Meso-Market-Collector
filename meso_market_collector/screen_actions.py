@@ -89,6 +89,13 @@ class ScreenActions:
             time.sleep(self.poll_interval)
         raise TimeoutError(f"Timed out waiting for {running} to exit")
 
+    def record_leftovers(self, processes: list[str]) -> None:
+        running = [p for p in processes if self._is_running(p)]
+        if not running:
+            return
+        path = save_snapshot(f"{FAILURE_SNAPSHOT_PREFIX}leftover", pyautogui.screenshot())
+        print(f"Still running from before this run: {', '.join(running)} - screenshot {path.name}", flush=True)
+
     def _is_running(self, image_name: str) -> bool:
         out = subprocess.run(
             ["tasklist", "/FO", "CSV", "/NH", "/FI", f"IMAGENAME eq {image_name}"],
@@ -286,6 +293,7 @@ class ScreenActions:
         deadline = time.monotonic() + self.timeout
         while not (windows := gw.getWindowsWithTitle(window_title)):
             if time.monotonic() >= deadline:
+                self._save_timeout_screenshot(window_title)
                 raise TimeoutError(f"Timed out waiting for a window with title containing {window_title!r}")
             time.sleep(self.poll_interval)
         window = windows[0]

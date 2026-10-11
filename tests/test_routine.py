@@ -53,6 +53,9 @@ class FakeActions:
     def wait_for_process_exit(self, processes):
         self.calls.append(("wait_for_process_exit", tuple(processes)))
 
+    def record_leftovers(self, processes):
+        self.calls.append(("record_leftovers", tuple(processes)))
+
     def wait_for_user(self, message):
         self.calls.append(("wait_for_user", message))
 
@@ -472,3 +475,23 @@ def test_real_routine_keeps_failure_screenshots_longer_than_ordinary_snapshots()
 
     assert cleanup.failure_max_age_days is not None
     assert cleanup.failure_max_age_days > cleanup.max_age_days
+
+
+def test_run_routine_dispatches_record_leftovers():
+    actions = FakeActions()
+
+    run_routine(
+        [Step(action="record_leftovers", processes=["MapleStory.exe", "nexon_client.exe"])],
+        task_name="x",
+        actions=actions,
+    )
+
+    assert actions.calls == [("record_leftovers", ("MapleStory.exe", "nexon_client.exe"))]
+
+
+def test_real_routine_records_leftovers_before_closing_anything():
+    from pathlib import Path
+
+    steps = load_steps(Path(__file__).resolve().parent.parent / "config" / "routine.json")
+
+    assert steps[0] == Step(action="record_leftovers", processes=["MapleStory.exe", "nexon_client.exe"])

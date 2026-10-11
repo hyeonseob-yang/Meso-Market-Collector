@@ -71,13 +71,61 @@ def test_focus_window_waits_for_window_to_appear(monkeypatch, clock):
     assert clock.now >= 1.0  # waited through the two empty polls
 
 
-def test_focus_window_times_out_if_window_never_appears(monkeypatch, clock):
+@pytest.fixture
+def screenshots(monkeypatch, tmp_path):
+    """Fakes the screen grab and records each snapshot saved as (name, image)."""
+    saved = []
+
+    def save_snapshot(item, image):
+        saved.append((item, image))
+        return tmp_path / f"{item}.png"
+
+    monkeypatch.setattr(screen_actions, "save_snapshot", save_snapshot)
+    monkeypatch.setattr(screen_actions, "pyautogui", SimpleNamespace(screenshot=lambda: "the screen"))
+    return saved
+
+
+def test_focus_window_times_out_if_window_never_appears(monkeypatch, clock, screenshots):
     monkeypatch.setattr(screen_actions, "gw", _fake_gw([[]]))
 
     with pytest.raises(TimeoutError, match="MapleStory"):
         screen_actions.ScreenActions(poll_interval=0.5, timeout=3).focus_window("MapleStory")
 
     assert clock.now >= 3
+    assert screenshots == [("timeout_MapleStory", "the screen")]
+
+
+def _running(monkeypatch, *names):
+    monkeypatch.setattr(screen_actions.ScreenActions, "_is_running", lambda self, name: name in names)
+
+
+def test_record_leftovers_screenshots_what_a_previous_run_left_open(monkeypatch, screenshots, capsys):
+    _running(monkeypatch, "nexon_client.exe")
+
+    screen_actions.ScreenActions().record_leftovers(["MapleStory.exe", "nexon_client.exe"])
+
+    assert screenshots == [("timeout_leftover", "the screen")]
+    out = capsys.readouterr().out
+    assert "nexon_client.exe" in out
+    assert "MapleStory.exe" not in out
+
+
+def test_record_leftovers_names_every_process_still_running(monkeypatch, screenshots, capsys):
+    _running(monkeypatch, "MapleStory.exe", "nexon_client.exe")
+
+    screen_actions.ScreenActions().record_leftovers(["MapleStory.exe", "nexon_client.exe"])
+
+    out = capsys.readouterr().out
+    assert "MapleStory.exe" in out and "nexon_client.exe" in out
+
+
+def test_record_leftovers_does_nothing_when_nothing_is_running(monkeypatch, screenshots, capsys):
+    _running(monkeypatch)
+
+    screen_actions.ScreenActions().record_leftovers(["MapleStory.exe", "nexon_client.exe"])
+
+    assert screenshots == []
+    assert capsys.readouterr().out == ""
 
 
 class FocusableWindow(FakeWindow):

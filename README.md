@@ -187,7 +187,8 @@ recorded, with `Possible OCR misread: …` in Notes.
 - **A run failed.** The error is at the end of `data/session.log`. If a
   screen check timed out, `data/snapshots/timeout_<template>_<timestamp>.png`
   shows the screen at that moment. The game stays open until the next run
-  closes it.
+  closes it; that run first logs what was still open and saves
+  `timeout_leftover_<timestamp>.png`.
 - **A screen check keeps timing out.** The template image no longer matches
   (display change or game update): recapture it into
   `assets/templates.local/`.
