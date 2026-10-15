@@ -188,46 +188,13 @@ def test_post_price_row_sends_collected_at(mock_post):
 
 
 @patch("meso_market_collector.api_client.requests.post")
-def test_post_price_row_reposts_without_datetime_if_tracker_rejects_the_field(mock_post, capsys):
-    # A Tracker not yet updated to accept `datetime` rejects the whole
-    # mutation - the row should still get recorded, just without it.
-    mock_post.side_effect = [
-        _fake_response(UNKNOWN_DATETIME_FIELD),
-        _fake_response({"data": {"recordPrice": "42"}}),
-    ]
+def test_post_price_row_raises_when_tracker_rejects_the_datetime(mock_post):
+    mock_post.return_value = _fake_response(UNKNOWN_DATETIME_FIELD)
 
-    post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql", collected_at=COLLECTED_AT)
-
-    first, second = (call.kwargs["json"]["variables"]["price"] for call in mock_post.call_args_list)
-    assert "datetime" in first
-    assert "datetime" not in second
-    assert second["average"] == COMPLETE_ROW["Average"]
-    out = capsys.readouterr().out
-    assert "re-posting without it" in out
-    assert "42" in out
-
-
-@patch("meso_market_collector.api_client.requests.post")
-def test_post_price_row_does_not_repost_on_unrelated_errors(mock_post):
-    mock_post.return_value = _fake_response(
-        {"errors": [{"message": "average must be a positive integer"}], "data": None}
-    )
-
-    with pytest.raises(ValueError, match="average must be a positive integer"):
+    with pytest.raises(ValueError, match="datetime"):
         post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql", collected_at=COLLECTED_AT)
 
     assert mock_post.call_count == 1
-
-
-@patch("meso_market_collector.api_client.requests.post")
-def test_post_price_row_raises_if_repost_without_datetime_also_fails(mock_post):
-    mock_post.side_effect = [
-        _fake_response(UNKNOWN_DATETIME_FIELD),
-        _fake_response({"data": {"recordPrice": "None"}}),
-    ]
-
-    with pytest.raises(ValueError, match="did not confirm"):
-        post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql", collected_at=COLLECTED_AT)
 
 
 @patch("meso_market_collector.api_client.requests.post")

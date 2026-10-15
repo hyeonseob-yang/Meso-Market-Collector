@@ -94,16 +94,6 @@ def post_price_row(
     # GraphQL reports a rejected mutation as HTTP 200 with the failure in
     # the body, which raise_for_status() can't see.
     errors = body.get("errors")
-    if errors and collected_at is not None and "datetime" in str(errors):
-        # A Tracker without the `datetime` field rejects the whole
-        # mutation; record the row at its insert time rather than not at all.
-        print(
-            "Tracker doesn't accept a datetime yet - re-posting without it "
-            "(the row will be stamped with Tracker's insert time)",
-            flush=True,
-        )
-        body = _post(url, build_price_payload(row), timeout)
-        errors = body.get("errors")
     if errors:
         message = f"Tracker rejected the price row - GraphQL errors: {errors}"
         print(message, file=sys.stderr, flush=True)
