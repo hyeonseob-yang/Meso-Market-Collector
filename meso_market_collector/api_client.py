@@ -26,14 +26,13 @@ mutation RecordPrice($price: PriceInput!) {
 _PLACEHOLDER_IDS = {"none", "null", "nan", "undefined"}
 
 
-def build_price_payload(row: dict[str, int | None], collected_at: datetime | None = None) -> dict:
+def build_price_payload(row: dict[str, int | None], collected_at: datetime) -> dict:
     """Build the GraphQL request body for one price row, keyed like
     storage.append_price_row's rows.
 
     Raises if any price is missing (None): sending 0 instead would record
     a fabricated value. `collected_at` (timezone-aware) is sent as
-    `datetime` in UTC so a row posted late keeps its real time; without
-    it, Tracker stamps the row at insert time."""
+    `datetime` in UTC so a row posted late keeps its real time."""
     missing = [field for field in PRICE_FIELDS if row.get(field) is None]
     if missing:
         message = (
@@ -44,11 +43,9 @@ def build_price_payload(row: dict[str, int | None], collected_at: datetime | Non
         print(message, file=sys.stderr, flush=True)
         raise ValueError(message)
 
-    price = {"notes": row.get("notes") or ""}
-    if collected_at is not None:
-        if collected_at.tzinfo is None:
-            raise ValueError("collected_at must be timezone-aware")
-        price["datetime"] = collected_at.astimezone(timezone.utc).isoformat()
+    if collected_at.tzinfo is None:
+        raise ValueError("collected_at must be timezone-aware")
+    price = {"notes": row.get("notes") or "", "datetime": collected_at.astimezone(timezone.utc).isoformat()}
 
     for field in PRICE_FIELDS:
         price[field] = int(row[field])
@@ -75,9 +72,9 @@ def _post(url: str, payload: dict, timeout: float) -> dict:
 
 def post_price_row(
     row: dict[str, int | None],
+    collected_at: datetime,
     url: str | None = None,
     timeout: float = 10.0,
-    collected_at: datetime | None = None,
 ) -> None:
     if url is None:
         url = get_tracker_api_url()
