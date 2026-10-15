@@ -67,8 +67,11 @@ $action = New-ScheduledTaskAction -Execute "cmd.exe" -WorkingDirectory $repo -Ar
 Register-ScheduledTask -TaskName "MesoMarketCollector_Session" -Action $action -Principal $principal -Trigger $trigger -Force
 ```
 
-If the shortcut line prints nothing, the shortcut path is wrong;
-`tools/find_shortcut_target.ps1` lists the Maple shortcuts on your desktop.
+If the shortcut line prints nothing, your shortcut is somewhere else (for
+example, OneDrive moves the desktop to `OneDrive\Desktop`). Right-click the
+MapleStory shortcut → **Properties** → **Open File Location** to see its
+full path, put that path in place of
+`$env:USERPROFILE\Desktop\MapleStory.lnk`, and paste the block again.
 
 Check the launch task from a normal shell: it should open the game's login
 screen with no prompt.
