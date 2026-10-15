@@ -255,9 +255,10 @@ class ScreenActions:
             print(f"WARNING: {misread} - doesn't fit the rest of the row; noted on the row", flush=True)
             notes = "; ".join(filter(None, [notes, misread]))
 
-        append_price_row(self._readings, notes=notes)
-        self._last_saved_row = {**self._readings, "Notes": notes}
-        self._last_saved_at = datetime.now(timezone.utc)
+        collected_at = datetime.now(timezone.utc)
+        append_price_row(self._readings, collected_at=collected_at, notes=notes)
+        self._last_saved_row = {**self._readings, "notes": notes}
+        self._last_saved_at = collected_at
         self._readings = {}
 
     def post_price_row(self) -> None:

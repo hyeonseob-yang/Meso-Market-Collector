@@ -17,35 +17,24 @@ FAILURE_SNAPSHOT_PREFIX = "timeout_"
 
 REGION_READING_FIELDNAMES = ["timestamp", "item", "price"]
 
-# One row per collection run, matching the hand-maintained price sheet.
-PRICE_ROW_FIELDNAMES = [
-    "Date",
-    "Average",
-    "Buy Buyout 100M",
-    "Buy Buyout 1B",
-    "Buy Buyout 10B",
-    "Sell Buyout 100M",
-    "Sell Buyout 1B",
-    "Sell Buyout 10B",
-    "Notes",
-]
+# Named as in Tracker's PriceInput, so a row is posted as-is.
+PRICE_FIELDS = ["average", "buy100M", "buy1B", "buy10B", "sell100M", "sell1B", "sell10B"]
+PRICE_ROW_FIELDNAMES = ["datetime", *PRICE_FIELDS, "notes"]
 
 
 def append_price_row(
     row: dict[str, int | None],
     csv_path: Path = CSV_PATH,
-    timestamp: str | None = None,
+    collected_at: datetime | None = None,
     notes: str = "",
 ) -> None:
-    """Append one row per collection run. `row` is keyed by
-    PRICE_ROW_FIELDNAMES' price columns. Date is the current local time
-    (the price sheet's convention, not UTC) unless `timestamp` is given."""
+    """Append one row per collection run, keyed by PRICE_FIELDS.
+    `collected_at` (default: now) is written in UTC."""
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     is_new = not csv_path.exists()
-    if timestamp is None:
-        now = datetime.now()
-        timestamp = f"{now.month}/{now.day}/{now.year} {now.hour}:{now.minute:02d}:{now.second:02d}"
-    full_row = {"Date": timestamp, **row, "Notes": notes}
+    if collected_at is None:
+        collected_at = datetime.now(timezone.utc)
+    full_row = {"datetime": collected_at.astimezone(timezone.utc).isoformat(), **row, "notes": notes}
     with open(csv_path, "a", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=PRICE_ROW_FIELDNAMES)
         if is_new:

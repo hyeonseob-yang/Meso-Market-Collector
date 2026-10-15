@@ -57,8 +57,8 @@ def _parse_price_text(text: str) -> int | None:
     return int(text)
 
 
-_BUY_TIERS = ("Buy Buyout 100M", "Buy Buyout 1B", "Buy Buyout 10B")
-_SELL_TIERS = ("Sell Buyout 100M", "Sell Buyout 1B", "Sell Buyout 10B")
+_BUY_TIERS = ("buy100M", "buy1B", "buy10B")
+_SELL_TIERS = ("sell100M", "sell1B", "sell10B")
 
 # Same-side tiers sit within a few points of each other. Not applied
 # across sides: a real spike had Buy 480 vs Sell 413, a 16% gap.

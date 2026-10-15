@@ -9,17 +9,17 @@ from meso_market_collector.api_client import RECORD_PRICE_MUTATION, build_price_
 # A fully-read row - every price field present, as record_prices leaves it
 # when OCR succeeds on all of them.
 COMPLETE_ROW = {
-    "Average": 310,
-    "Buy Buyout 100M": 313,
-    "Buy Buyout 1B": 313,
-    "Buy Buyout 10B": 313,
-    "Sell Buyout 100M": 311,
-    "Sell Buyout 1B": 311,
-    "Sell Buyout 10B": 307,
+    "average": 310,
+    "buy100M": 313,
+    "buy1B": 313,
+    "buy10B": 313,
+    "sell100M": 311,
+    "sell1B": 311,
+    "sell10B": 307,
 }
 
 
-def test_build_price_payload_maps_wide_row_to_price_input():
+def test_build_price_payload_sends_the_row_as_price_input():
     payload = build_price_payload(COMPLETE_ROW)
 
     assert payload == {
@@ -75,36 +75,36 @@ def test_build_price_payload_raises_on_missing_price(capsys):
     # read a box) must never silently become a fabricated 0 sent to
     # Tracker - see the incident this guards against in api_client.py's
     # build_price_payload docstring.
-    row = dict(COMPLETE_ROW, **{"Buy Buyout 100M": None})
+    row = dict(COMPLETE_ROW, **{"buy100M": None})
 
-    with pytest.raises(ValueError, match="Buy Buyout 100M"):
+    with pytest.raises(ValueError, match="buy100M"):
         build_price_payload(row)
 
-    assert "Buy Buyout 100M" in capsys.readouterr().err
+    assert "buy100M" in capsys.readouterr().err
 
 
 def test_build_price_payload_raises_on_missing_price_key():
     # Same as an explicit None - a column absent from the row entirely
     # (e.g. a routine.json authoring gap) is just as unreadable.
-    row = {k: v for k, v in COMPLETE_ROW.items() if k != "Sell Buyout 10B"}
+    row = {k: v for k, v in COMPLETE_ROW.items() if k != "sell10B"}
 
-    with pytest.raises(ValueError, match="Sell Buyout 10B"):
+    with pytest.raises(ValueError, match="sell10B"):
         build_price_payload(row)
 
 
 def test_build_price_payload_reports_all_missing_prices_at_once():
-    row = {"Average": 377}
+    row = {"average": 377}
 
     with pytest.raises(ValueError) as exc_info:
         build_price_payload(row)
 
     message = str(exc_info.value)
-    for column in ["Buy Buyout 100M", "Buy Buyout 1B", "Buy Buyout 10B", "Sell Buyout 100M", "Sell Buyout 1B", "Sell Buyout 10B"]:
+    for column in ["buy100M", "buy1B", "buy10B", "sell100M", "sell1B", "sell10B"]:
         assert column in message
 
 
 def test_build_price_payload_passes_through_notes():
-    row = dict(COMPLETE_ROW, Notes="Fluctuating rapidly")
+    row = dict(COMPLETE_ROW, notes="Fluctuating rapidly")
 
     payload = build_price_payload(row)
 
@@ -162,7 +162,7 @@ def test_post_price_row_succeeds_when_recordPrice_returns_an_id(mock_post, capsy
 
     args, kwargs = mock_post.call_args
     assert args[0] == "https://tracker.example/graphql"
-    assert kwargs["json"]["variables"]["price"]["average"] == COMPLETE_ROW["Average"]
+    assert kwargs["json"]["variables"]["price"]["average"] == COMPLETE_ROW["average"]
     assert "datetime" not in kwargs["json"]["variables"]["price"]
     # printed (not just silently discarded) so the id is available for
     # cross-referencing against Tracker/Supabase later.

@@ -169,12 +169,12 @@ leave Notes blank.
 
 ## Output
 
-- **`data/price_history.csv`** — one row per run: `Date` (local time),
-  `Average`, `Buy Buyout 100M / 1B / 10B`, `Sell Buyout 100M / 1B / 10B`,
-  `Notes`.
-- **Tracker** — the same row, with its collection time in UTC.
+- **`data/price_history.csv`** — one row per run, with the same column
+  names as Tracker: `datetime` (collection time, UTC), `average`,
+  `buy100M`, `buy1B`, `buy10B`, `sell100M`, `sell1B`, `sell10B`, `notes`.
+- **Tracker** — the same row.
 - **`data/snapshots/`** — the image of every price box, named with the
-  value OCR read (e.g. `Average_406_<timestamp>.png`), for checking a
+  value OCR read (e.g. `average_406_<timestamp>.png`), for checking a
   reading. Deleted after 7 days (`max_age_days` in `config/routine.json`).
   The full-screen `timeout_…png` screenshots saved when a run fails are
   kept for 90 days (`failure_max_age_days`), so a rare failure, such as on
@@ -183,7 +183,7 @@ leave Notes blank.
   session task.
 
 A price that doesn't fit the rest of its row (e.g. 427 read as 42) is still
-recorded, with `Possible OCR misread: …` in Notes.
+recorded, with `Possible OCR misread: …` in `notes`.
 
 ## Troubleshooting
 

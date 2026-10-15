@@ -101,7 +101,7 @@ def test_load_steps_parses_json(tmp_path):
                 {"action": "focus_window", "window_title": "MapleStory"},
                 {"action": "wait_for_image", "template": "login_button.png", "confidence": 0.986},
                 {"action": "wait_for_user", "message": "Log in, then press Enter"},
-                {"action": "record_prices", "regions": {"meso_1": "Average", "meso_2": "Sell Buyout 100M"}},
+                {"action": "record_prices", "regions": {"meso_1": "average", "meso_2": "sell100M"}},
                 {"action": "press_key", "key": "esc"},
                 {"action": "hotkey", "keys": ["alt", "f4"]},
                 {"action": "save_price_row"},
@@ -119,7 +119,7 @@ def test_load_steps_parses_json(tmp_path):
         Step(action="focus_window", window_title="MapleStory"),
         Step(action="wait_for_image", template="login_button.png", confidence=0.986),
         Step(action="wait_for_user", message="Log in, then press Enter"),
-        Step(action="record_prices", regions={"meso_1": "Average", "meso_2": "Sell Buyout 100M"}),
+        Step(action="record_prices", regions={"meso_1": "average", "meso_2": "sell100M"}),
         Step(action="press_key", key="esc"),
         Step(action="hotkey", keys=["alt", "f4"]),
         Step(action="save_price_row"),
@@ -145,10 +145,10 @@ def test_run_routine_dispatches_each_step_in_order():
         Step(
             action="record_prices",
             regions={
-                "meso_1": "Average",
-                "meso_2": "Sell Buyout 100M",
-                "meso_3": "Sell Buyout 1B",
-                "meso_4": "Sell Buyout 10B",
+                "meso_1": "average",
+                "meso_2": "sell100M",
+                "meso_3": "sell1B",
+                "meso_4": "sell10B",
             },
         ),
         Step(
@@ -159,9 +159,9 @@ def test_run_routine_dispatches_each_step_in_order():
         Step(
             action="record_prices",
             regions={
-                "meso_2": "Buy Buyout 100M",
-                "meso_3": "Buy Buyout 1B",
-                "meso_4": "Buy Buyout 10B",
+                "meso_2": "buy100M",
+                "meso_3": "buy1B",
+                "meso_4": "buy10B",
             },
         ),
         Step(action="save_price_row"),
@@ -181,19 +181,19 @@ def test_run_routine_dispatches_each_step_in_order():
         (
             "record_prices",
             {
-                "meso_1": "Average",
-                "meso_2": "Sell Buyout 100M",
-                "meso_3": "Sell Buyout 1B",
-                "meso_4": "Sell Buyout 10B",
+                "meso_1": "average",
+                "meso_2": "sell100M",
+                "meso_3": "sell1B",
+                "meso_4": "sell10B",
             },
         ),
         ("wait_for_image", "buy_mesos_active.png", "Click the Buy Mesos tab", None),
         (
             "record_prices",
             {
-                "meso_2": "Buy Buyout 100M",
-                "meso_3": "Buy Buyout 1B",
-                "meso_4": "Buy Buyout 10B",
+                "meso_2": "buy100M",
+                "meso_3": "buy1B",
+                "meso_4": "buy10B",
             },
         ),
         ("save_price_row",),
@@ -495,3 +495,14 @@ def test_real_routine_records_leftovers_before_closing_anything():
     steps = load_steps(Path(__file__).resolve().parent.parent / "config" / "routine.json")
 
     assert steps[0] == Step(action="record_leftovers", processes=["MapleStory.exe", "nexon_client.exe"])
+
+
+def test_real_routine_records_every_price_field_once():
+    from pathlib import Path
+
+    from meso_market_collector.storage import PRICE_FIELDS
+
+    steps = load_steps(Path(__file__).resolve().parent.parent / "config" / "routine.json")
+    recorded = [field for s in steps if s.action == "record_prices" for field in s.regions.values()]
+
+    assert sorted(recorded) == sorted(PRICE_FIELDS)

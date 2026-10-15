@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 import requests
 
 from .config import get_record_price_secret, get_tracker_api_url
+from .storage import PRICE_FIELDS
 
 RECORD_PRICE_SECRET_HEADER = "x-record-price-secret"
 
@@ -24,17 +25,6 @@ mutation RecordPrice($price: PriceInput!) {
 # str(None) when the insert failed. Non-empty, so a truthiness check passes.
 _PLACEHOLDER_IDS = {"none", "null", "nan", "undefined"}
 
-# CSV column name (storage.PRICE_ROW_FIELDNAMES) -> PriceInput field name.
-_FIELD_MAP = {
-    "Average": "average",
-    "Buy Buyout 100M": "buy100M",
-    "Buy Buyout 1B": "buy1B",
-    "Buy Buyout 10B": "buy10B",
-    "Sell Buyout 100M": "sell100M",
-    "Sell Buyout 1B": "sell1B",
-    "Sell Buyout 10B": "sell10B",
-}
-
 
 def build_price_payload(row: dict[str, int | None], collected_at: datetime | None = None) -> dict:
     """Build the GraphQL request body for one price row, keyed like
@@ -44,7 +34,7 @@ def build_price_payload(row: dict[str, int | None], collected_at: datetime | Non
     a fabricated value. `collected_at` (timezone-aware) is sent as
     `datetime` in UTC so a row posted late keeps its real time; without
     it, Tracker stamps the row at insert time."""
-    missing = [column for column in _FIELD_MAP if row.get(column) is None]
+    missing = [field for field in PRICE_FIELDS if row.get(field) is None]
     if missing:
         message = (
             "Refusing to post price row to Tracker - missing/unreadable "
@@ -54,14 +44,14 @@ def build_price_payload(row: dict[str, int | None], collected_at: datetime | Non
         print(message, file=sys.stderr, flush=True)
         raise ValueError(message)
 
-    price = {"notes": row.get("Notes") or ""}
+    price = {"notes": row.get("notes") or ""}
     if collected_at is not None:
         if collected_at.tzinfo is None:
             raise ValueError("collected_at must be timezone-aware")
         price["datetime"] = collected_at.astimezone(timezone.utc).isoformat()
 
-    for column, field in _FIELD_MAP.items():
-        price[field] = int(row[column])
+    for field in PRICE_FIELDS:
+        price[field] = int(row[field])
     return {"query": RECORD_PRICE_MUTATION, "variables": {"price": price}}
 
 
