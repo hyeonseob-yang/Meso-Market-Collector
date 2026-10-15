@@ -169,6 +169,12 @@ def test_get_tracker_api_url_reads_env_file(env_file):
     assert get_tracker_api_url() == "http://localhost:5000/price"
 
 
+def test_env_file_ignores_a_comment_after_a_value(env_file):
+    env_file.write_text("MESO_TRACKER_API_URL=http://localhost:5000/price # dev server\n")
+
+    assert get_tracker_api_url() == "http://localhost:5000/price"
+
+
 def test_get_record_price_secret_is_none_when_unconfigured(env_file):
     assert config.get_record_price_secret() is None
 

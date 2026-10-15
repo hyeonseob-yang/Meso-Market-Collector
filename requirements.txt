@@ -4,3 +4,4 @@ opencv-python>=4.10.0.84
 pywin32>=306; sys_platform == "win32"
 pytesseract>=0.3.10
 requests>=2.32.0
+python-dotenv>=1.0.0
