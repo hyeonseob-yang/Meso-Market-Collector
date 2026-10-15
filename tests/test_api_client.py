@@ -25,6 +25,13 @@ def no_secret(monkeypatch):
     monkeypatch.setattr("meso_market_collector.api_client.get_record_price_secret", lambda: None)
 
 
+def _fake_response(body, raise_for_status_error=None):
+    response = MagicMock()
+    response.json.return_value = body
+    response.raise_for_status.side_effect = raise_for_status_error
+    return response
+
+
 def test_build_price_payload_sends_the_row_as_price_input():
     payload = build_price_payload(COMPLETE_ROW)
 
@@ -134,13 +141,6 @@ def test_post_price_row_posts_without_header_and_warns_when_no_secret(mock_post,
 
     assert mock_post.call_args.kwargs["headers"] == {}
     assert "no Tracker secret configured" in capsys.readouterr().out
-
-
-def _fake_response(body, raise_for_status_error=None):
-    response = MagicMock()
-    response.json.return_value = body
-    response.raise_for_status.side_effect = raise_for_status_error
-    return response
 
 
 @patch("meso_market_collector.api_client.requests.post")
