@@ -24,7 +24,7 @@ def no_secret(monkeypatch):
     monkeypatch.setattr("meso_market_collector.api_client.get_record_price_secret", lambda: None)
 
 
-def test_build_price_payload_sends_the_row_as_price_input():
+def test_build_price_payload_wraps_the_row_in_the_record_price_mutation():
     payload = build_price_payload(COMPLETE_ROW)
 
     assert payload == {
