@@ -6,9 +6,7 @@ import requests
 
 from meso_market_collector.api_client import RECORD_PRICE_MUTATION, build_price_payload, post_price_row
 
-# A fully-read row - every price field present, as record_prices leaves it
-# when OCR succeeds on all of them.
-COMPLETE_ROW = {
+PRICES = {
     "average": 310,
     "buy100M": 313,
     "buy1B": 313,
@@ -17,7 +15,7 @@ COMPLETE_ROW = {
     "sell1B": 311,
     "sell10B": 307,
 }
-COLLECTED_AT = datetime(2026, 10, 1, 6, 19, 51, tzinfo=timezone.utc)
+COMPLETE_ROW = {"datetime": datetime(2026, 10, 1, 6, 19, 51, tzinfo=timezone.utc), **PRICES}
 
 
 @pytest.fixture(autouse=True)
@@ -27,47 +25,49 @@ def no_secret(monkeypatch):
 
 
 def test_build_price_payload_sends_the_row_as_price_input():
-    payload = build_price_payload(COMPLETE_ROW, COLLECTED_AT)
+    payload = build_price_payload(COMPLETE_ROW)
 
     assert payload == {
         "query": RECORD_PRICE_MUTATION,
-        "variables": {"price": {**COMPLETE_ROW, "datetime": "2026-10-01T06:19:51+00:00", "notes": ""}},
+        "variables": {"price": {**PRICES, "datetime": "2026-10-01T06:19:51+00:00", "notes": ""}},
     }
 
 
 def test_build_price_payload_sends_ints_not_floats():
-    row = {field: float(value) for field, value in COMPLETE_ROW.items()}
+    row = {**COMPLETE_ROW, **{field: float(value) for field, value in PRICES.items()}}
 
-    price = build_price_payload(row, COLLECTED_AT)["variables"]["price"]
+    price = build_price_payload(row)["variables"]["price"]
 
-    assert {field: (type(price[field]), price[field]) for field in COMPLETE_ROW} == {
-        field: (int, value) for field, value in COMPLETE_ROW.items()
+    assert {field: (type(price[field]), price[field]) for field in PRICES} == {
+        field: (int, value) for field, value in PRICES.items()
     }
 
 
 @patch("meso_market_collector.api_client.requests.post")
 def test_a_row_cannot_be_built_or_posted_without_its_collection_time(mock_post):
-    with pytest.raises(TypeError):
-        build_price_payload(COMPLETE_ROW)
-    with pytest.raises(TypeError):
-        post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql")
+    row = dict(PRICES)
+
+    with pytest.raises(ValueError, match="datetime"):
+        build_price_payload(row)
+    with pytest.raises(ValueError, match="datetime"):
+        post_price_row(row, url="https://tracker.example/graphql")
 
     assert mock_post.call_count == 0
 
 
-def test_build_price_payload_sends_collected_at_as_utc_iso_datetime():
-    collected_at = datetime(2026, 9, 30, 23, 19, 51, tzinfo=timezone(timedelta(hours=-7)))
+def test_build_price_payload_sends_the_collection_time_in_utc():
+    row = {**COMPLETE_ROW, "datetime": datetime(2026, 9, 30, 23, 19, 51, tzinfo=timezone(timedelta(hours=-7)))}
 
-    payload = build_price_payload(COMPLETE_ROW, collected_at=collected_at)
+    payload = build_price_payload(row)
 
-    # Converted to UTC, whatever zone it was given in.
     assert payload["variables"]["price"]["datetime"] == "2026-10-01T06:19:51+00:00"
 
 
-def test_build_price_payload_rejects_naive_collected_at():
-    # A naive time would be silently read as whatever zone Tracker assumes.
+def test_build_price_payload_rejects_a_collection_time_without_a_time_zone():
+    row = {**COMPLETE_ROW, "datetime": datetime(2026, 9, 30, 23, 19, 51)}
+
     with pytest.raises(ValueError, match="timezone-aware"):
-        build_price_payload(COMPLETE_ROW, collected_at=datetime(2026, 9, 30, 23, 19, 51))
+        build_price_payload(row)
 
 
 def test_build_price_payload_raises_on_missing_price(capsys):
@@ -78,7 +78,7 @@ def test_build_price_payload_raises_on_missing_price(capsys):
     row = dict(COMPLETE_ROW, **{"buy100M": None})
 
     with pytest.raises(ValueError, match="buy100M"):
-        build_price_payload(row, COLLECTED_AT)
+        build_price_payload(row)
 
     assert "buy100M" in capsys.readouterr().err
 
@@ -89,14 +89,14 @@ def test_build_price_payload_raises_on_missing_price_key():
     row = {k: v for k, v in COMPLETE_ROW.items() if k != "sell10B"}
 
     with pytest.raises(ValueError, match="sell10B"):
-        build_price_payload(row, COLLECTED_AT)
+        build_price_payload(row)
 
 
-def test_build_price_payload_reports_all_missing_prices_at_once():
+def test_build_price_payload_reports_all_missing_fields_at_once():
     row = {"average": 377}
 
     with pytest.raises(ValueError) as exc_info:
-        build_price_payload(row, COLLECTED_AT)
+        build_price_payload(row)
 
     message = str(exc_info.value)
     for field in COMPLETE_ROW.keys() - {"average"}:
@@ -106,13 +106,13 @@ def test_build_price_payload_reports_all_missing_prices_at_once():
 def test_build_price_payload_passes_through_notes():
     row = dict(COMPLETE_ROW, notes="Fluctuating rapidly")
 
-    payload = build_price_payload(row, COLLECTED_AT)
+    payload = build_price_payload(row)
 
     assert payload["variables"]["price"]["notes"] == "Fluctuating rapidly"
 
 
 def test_build_price_payload_defaults_notes_to_empty_string():
-    payload = build_price_payload(COMPLETE_ROW, COLLECTED_AT)
+    payload = build_price_payload(COMPLETE_ROW)
 
     assert payload["variables"]["price"]["notes"] == ""
 
@@ -129,7 +129,7 @@ def test_post_price_row_sends_secret_header_when_configured(mock_post, monkeypat
     monkeypatch.setattr("meso_market_collector.api_client.get_record_price_secret", lambda: "s3cret")
     mock_post.return_value = _fake_response({"data": {"recordPrice": "42"}})
 
-    post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql", collected_at=COLLECTED_AT)
+    post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql")
 
     assert mock_post.call_args.kwargs["headers"] == {"x-record-price-secret": "s3cret"}
     out = capsys.readouterr()
@@ -140,7 +140,7 @@ def test_post_price_row_sends_secret_header_when_configured(mock_post, monkeypat
 def test_post_price_row_posts_without_header_and_warns_when_no_secret(mock_post, capsys):
     mock_post.return_value = _fake_response({"data": {"recordPrice": "42"}})
 
-    post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql", collected_at=COLLECTED_AT)
+    post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql")
 
     assert mock_post.call_args.kwargs["headers"] == {}
     assert "no Tracker secret configured" in capsys.readouterr().out
@@ -152,7 +152,7 @@ def test_post_price_row_succeeds_when_recordPrice_returns_an_id(mock_post, capsy
     # boolean.
     mock_post.return_value = _fake_response({"data": {"recordPrice": "42"}})
 
-    post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql", collected_at=COLLECTED_AT)  # must not raise
+    post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql")  # must not raise
 
     args, kwargs = mock_post.call_args
     assert args[0] == "https://tracker.example/graphql"
@@ -169,10 +169,10 @@ UNKNOWN_DATETIME_FIELD = {
 
 
 @patch("meso_market_collector.api_client.requests.post")
-def test_post_price_row_sends_collected_at(mock_post):
+def test_post_price_row_sends_the_rows_collection_time(mock_post):
     mock_post.return_value = _fake_response({"data": {"recordPrice": "42"}})
 
-    post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql", collected_at=COLLECTED_AT)
+    post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql")
 
     assert mock_post.call_count == 1
     sent = mock_post.call_args.kwargs["json"]["variables"]["price"]
@@ -184,7 +184,7 @@ def test_post_price_row_raises_when_tracker_rejects_the_datetime(mock_post):
     mock_post.return_value = _fake_response(UNKNOWN_DATETIME_FIELD)
 
     with pytest.raises(ValueError, match="datetime"):
-        post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql", collected_at=COLLECTED_AT)
+        post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql")
 
     assert mock_post.call_count == 1
 
@@ -199,7 +199,7 @@ def test_post_price_row_raises_on_graphql_errors(mock_post, capsys):
     )
 
     with pytest.raises(ValueError, match="average must be a positive integer"):
-        post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql", collected_at=COLLECTED_AT)
+        post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql")
 
     assert "average must be a positive integer" in capsys.readouterr().err
 
@@ -211,7 +211,7 @@ def test_post_price_row_raises_when_recordPrice_id_is_empty(mock_post):
     mock_post.return_value = _fake_response({"data": {"recordPrice": ""}})
 
     with pytest.raises(ValueError, match="did not confirm"):
-        post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql", collected_at=COLLECTED_AT)
+        post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql")
 
 
 @patch("meso_market_collector.api_client.requests.post")
@@ -219,7 +219,7 @@ def test_post_price_row_raises_when_data_missing_entirely(mock_post):
     mock_post.return_value = _fake_response({})
 
     with pytest.raises(ValueError, match="did not confirm"):
-        post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql", collected_at=COLLECTED_AT)
+        post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql")
 
 
 @patch("meso_market_collector.api_client.requests.post")
@@ -232,7 +232,7 @@ def test_post_price_row_raises_on_placeholder_id(mock_post, placeholder):
     mock_post.return_value = _fake_response({"data": {"recordPrice": placeholder}})
 
     with pytest.raises(ValueError, match="did not confirm"):
-        post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql", collected_at=COLLECTED_AT)
+        post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql")
 
 
 @patch("meso_market_collector.api_client.requests.post")
@@ -245,4 +245,4 @@ def test_post_price_row_still_propagates_http_level_errors(mock_post):
     )
 
     with pytest.raises(requests.HTTPError):
-        post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql", collected_at=COLLECTED_AT)
+        post_price_row(COMPLETE_ROW, url="https://tracker.example/graphql")

@@ -6,12 +6,11 @@ Meso-Market-Tracker/backend/schema.py.
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timezone
 
 import requests
 
 from .config import get_record_price_secret, get_tracker_api_url
-from .storage import PRICE_FIELDS
+from .storage import PRICE_FIELDS, utc_timestamp
 
 RECORD_PRICE_SECRET_HEADER = "x-record-price-secret"
 
@@ -26,27 +25,24 @@ mutation RecordPrice($price: PriceInput!) {
 _PLACEHOLDER_IDS = {"none", "null", "nan", "undefined"}
 
 
-def build_price_payload(row: dict[str, int | None], collected_at: datetime) -> dict:
-    """Build the GraphQL request body for one price row, keyed like
+def build_price_payload(row: dict) -> dict:
+    """Build the GraphQL request body for one row, keyed like
     storage.append_price_row's rows.
 
-    Raises if any price is missing (None): sending 0 instead would record
-    a fabricated value. `collected_at` (timezone-aware) is sent as
-    `datetime` in UTC so a row posted late keeps its real time."""
-    missing = [field for field in PRICE_FIELDS if row.get(field) is None]
+    Raises if the time or any price is missing: sending 0 instead would
+    record a fabricated value. The time is sent in UTC so a row posted
+    late keeps its real time."""
+    missing = [field for field in ["datetime", *PRICE_FIELDS] if row.get(field) is None]
     if missing:
         message = (
             "Refusing to post price row to Tracker - missing/unreadable "
-            f"price(s): {', '.join(missing)} (would otherwise be sent as a "
-            "fabricated 0)"
+            f"field(s): {', '.join(missing)} (would otherwise be sent as a "
+            "fabricated value)"
         )
         print(message, file=sys.stderr, flush=True)
         raise ValueError(message)
 
-    if collected_at.tzinfo is None:
-        raise ValueError("collected_at must be timezone-aware")
-    price = {"notes": row.get("notes") or "", "datetime": collected_at.astimezone(timezone.utc).isoformat()}
-
+    price = {"datetime": utc_timestamp(row["datetime"]), "notes": row.get("notes") or ""}
     for field in PRICE_FIELDS:
         price[field] = int(row[field])
     return {"query": RECORD_PRICE_MUTATION, "variables": {"price": price}}
@@ -70,15 +66,10 @@ def _post(url: str, payload: dict, timeout: float) -> dict:
     return response.json()
 
 
-def post_price_row(
-    row: dict[str, int | None],
-    collected_at: datetime,
-    url: str | None = None,
-    timeout: float = 10.0,
-) -> None:
+def post_price_row(row: dict, url: str | None = None, timeout: float = 10.0) -> None:
     if url is None:
         url = get_tracker_api_url()
-    body = _post(url, build_price_payload(row, collected_at), timeout)
+    body = _post(url, build_price_payload(row), timeout)
 
     # GraphQL reports a rejected mutation as HTTP 200 with the failure in
     # the body, which raise_for_status() can't see.

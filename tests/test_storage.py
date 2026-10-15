@@ -1,6 +1,8 @@
 import csv
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from meso_market_collector.storage import (
     PRICE_ROW_FIELDNAMES,
     append_price_row,
@@ -32,7 +34,7 @@ def test_append_region_reading_writes_header_and_row(tmp_path):
 def test_append_price_row_fills_missing_columns_blank(tmp_path):
     csv_path = tmp_path / "price_history.csv"
 
-    append_price_row({"average": 377}, csv_path=csv_path, collected_at=COLLECTED_AT)
+    append_price_row({"datetime": COLLECTED_AT, "average": 377}, csv_path=csv_path)
 
     with open(csv_path, newline="", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
@@ -44,7 +46,7 @@ def test_append_price_row_fills_missing_columns_blank(tmp_path):
 
 def test_append_price_row_writes_tracker_named_header_and_row(tmp_path):
     csv_path = tmp_path / "price_history.csv"
-    row = {
+    prices = {
         "average": 377,
         "buy100M": 382,
         "buy1B": 382,
@@ -54,7 +56,7 @@ def test_append_price_row_writes_tracker_named_header_and_row(tmp_path):
         "sell10B": 375,
     }
 
-    append_price_row(row, csv_path=csv_path, collected_at=COLLECTED_AT)
+    append_price_row({"datetime": COLLECTED_AT, **prices}, csv_path=csv_path)
 
     with open(csv_path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
@@ -71,14 +73,14 @@ def test_append_price_row_writes_tracker_named_header_and_row(tmp_path):
         ]
         rows = list(reader)
 
-    assert rows == [{"datetime": "2026-02-09T17:50:00+00:00", **{k: str(v) for k, v in row.items()}, "notes": ""}]
+    assert rows == [{"datetime": "2026-02-09T17:50:00+00:00", **{k: str(v) for k, v in prices.items()}, "notes": ""}]
 
 
-def test_append_price_row_writes_collected_at_in_utc(tmp_path):
+def test_append_price_row_writes_the_collection_time_in_utc(tmp_path):
     csv_path = tmp_path / "price_history.csv"
     pacific = datetime(2026, 10, 15, 3, 2, 41, tzinfo=timezone(timedelta(hours=-7)))
 
-    append_price_row({}, csv_path=csv_path, collected_at=pacific)
+    append_price_row({"datetime": pacific}, csv_path=csv_path)
 
     with open(csv_path, newline="", encoding="utf-8") as f:
         (row,) = csv.DictReader(f)
@@ -86,15 +88,13 @@ def test_append_price_row_writes_collected_at_in_utc(tmp_path):
     assert row["datetime"] == "2026-10-15T10:02:41+00:00"
 
 
-def test_append_price_row_uses_current_utc_time_by_default(tmp_path):
+def test_append_price_row_refuses_a_row_without_a_collection_time(tmp_path):
     csv_path = tmp_path / "price_history.csv"
 
-    append_price_row({}, csv_path=csv_path)
+    with pytest.raises(ValueError, match="datetime"):
+        append_price_row({"average": 377}, csv_path=csv_path)
 
-    with open(csv_path, newline="", encoding="utf-8") as f:
-        (row,) = csv.DictReader(f)
-
-    assert datetime.fromisoformat(row["datetime"]).utcoffset() == timedelta(0)
+    assert not csv_path.exists()
 
 
 def test_clear_old_snapshots_deletes_files_past_max_age(tmp_path):
@@ -141,10 +141,8 @@ def test_append_price_row_writes_notes(tmp_path):
     csv_path = tmp_path / "price_history.csv"
 
     append_price_row(
-        {"average": 420, "buy100M": 42},
+        {"datetime": COLLECTED_AT, "average": 420, "buy100M": 42, "notes": "Possible OCR misread: buy100M=42"},
         csv_path=csv_path,
-        collected_at=COLLECTED_AT,
-        notes="Possible OCR misread: buy100M=42",
     )
 
     with open(csv_path, newline="", encoding="utf-8") as f:

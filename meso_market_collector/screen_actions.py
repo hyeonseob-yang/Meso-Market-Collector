@@ -47,8 +47,7 @@ class ScreenActions:
         # Saved in the Notes of every row this run records (e.g. "manual").
         self.notes = notes
         self._readings: dict[str, int | None] = {}
-        self._last_saved_row: dict[str, int | None] = {}
-        self._last_saved_at: datetime | None = None
+        self._last_saved_row: dict = {}
         self._focus_target = None  # set by focus_window
 
     def _locate(self, template: str, confidence: float | None = None):
@@ -255,16 +254,13 @@ class ScreenActions:
             print(f"WARNING: {misread} - doesn't fit the rest of the row; noted on the row", flush=True)
             notes = "; ".join(filter(None, [notes, misread]))
 
-        collected_at = datetime.now(timezone.utc)
-        append_price_row(self._readings, collected_at=collected_at, notes=notes)
-        self._last_saved_row = {**self._readings, "notes": notes}
-        self._last_saved_at = collected_at
+        row = {"datetime": datetime.now(timezone.utc), **self._readings, "notes": notes}
+        append_price_row(row)
+        self._last_saved_row = row
         self._readings = {}
 
     def post_price_row(self) -> None:
-        # Sends the last saved row with its collection time, so Tracker
-        # doesn't record the posting time instead.
-        post_price_row_api(self._last_saved_row, collected_at=self._last_saved_at)
+        post_price_row_api(self._last_saved_row)
 
     def clear_old_snapshots(self, max_age_days: float, failure_max_age_days: float | None = None) -> None:
         clear_old_snapshots(max_age_days, failure_max_age_days=failure_max_age_days)

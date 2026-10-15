@@ -326,33 +326,25 @@ def _readings(buy_100m):
     }
 
 
-class SavedRows(list):
-    """(row, notes) per saved row, plus the collection time each was given."""
-
-    def __init__(self):
-        super().__init__()
-        self.times = []
+def _without_time(row):
+    return {field: value for field, value in row.items() if field != "datetime"}
 
 
 @pytest.fixture
 def saved_rows(monkeypatch):
-    saved = SavedRows()
-
-    def append_price_row(row, collected_at, notes=""):
-        saved.append((dict(row), notes))
-        saved.times.append(collected_at)
-
-    monkeypatch.setattr(screen_actions, "append_price_row", append_price_row)
+    saved = []
+    monkeypatch.setattr(screen_actions, "append_price_row", lambda row: saved.append(dict(row)))
     return saved
 
 
-def test_save_price_row_gives_the_csv_and_tracker_the_same_time(saved_rows):
+def test_save_price_row_saves_and_posts_the_same_row_with_its_collection_time(saved_rows):
     actions = screen_actions.ScreenActions()
     actions._readings = _readings(buy_100m=427)
 
     actions.save_price_row()
 
-    assert saved_rows.times == [actions._last_saved_at]
+    assert saved_rows == [actions._last_saved_row]
+    assert saved_rows[0]["datetime"].tzinfo is not None
 
 
 def test_save_price_row_keeps_an_implausible_price_and_notes_it(saved_rows):
@@ -365,9 +357,7 @@ def test_save_price_row_keeps_an_implausible_price_and_notes_it(saved_rows):
     actions.save_price_row()
 
     note = "Possible OCR misread: buy100M=42"
-    assert saved_rows == [(_readings(buy_100m=42), note)]
-    # ...and the same note rides along to Tracker with the row.
-    assert actions._last_saved_row == {**_readings(buy_100m=42), "notes": note}
+    assert [_without_time(row) for row in saved_rows] == [{**_readings(buy_100m=42), "notes": note}]
 
 
 def test_save_price_row_leaves_notes_blank_for_a_plausible_row(saved_rows):
@@ -376,8 +366,7 @@ def test_save_price_row_leaves_notes_blank_for_a_plausible_row(saved_rows):
 
     actions.save_price_row()
 
-    assert saved_rows == [(_readings(buy_100m=427), "")]
-    assert actions._last_saved_row["notes"] == ""
+    assert [_without_time(row) for row in saved_rows] == [{**_readings(buy_100m=427), "notes": ""}]
 
 
 def test_save_price_row_records_the_runs_notes(saved_rows):
@@ -388,8 +377,7 @@ def test_save_price_row_records_the_runs_notes(saved_rows):
 
     actions.save_price_row()
 
-    assert saved_rows == [(_readings(buy_100m=427), "manual")]
-    assert actions._last_saved_row["notes"] == "manual"
+    assert [_without_time(row) for row in saved_rows] == [{**_readings(buy_100m=427), "notes": "manual"}]
 
 
 def test_save_price_row_keeps_the_runs_notes_alongside_a_misread_note(saved_rows):
@@ -399,8 +387,7 @@ def test_save_price_row_keeps_the_runs_notes_alongside_a_misread_note(saved_rows
     actions.save_price_row()
 
     note = "manual; Possible OCR misread: buy100M=42"
-    assert saved_rows == [(_readings(buy_100m=42), note)]
-    assert actions._last_saved_row["notes"] == note
+    assert [_without_time(row) for row in saved_rows] == [{**_readings(buy_100m=42), "notes": note}]
 
 
 def test_clear_old_snapshots_passes_the_failure_limit_through(monkeypatch):

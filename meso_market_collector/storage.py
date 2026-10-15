@@ -22,24 +22,28 @@ PRICE_FIELDS = ["average", "buy100M", "buy1B", "buy10B", "sell100M", "sell1B", "
 PRICE_ROW_FIELDNAMES = ["datetime", *PRICE_FIELDS, "notes"]
 
 
-def append_price_row(
-    row: dict[str, int | None],
-    csv_path: Path = CSV_PATH,
-    collected_at: datetime | None = None,
-    notes: str = "",
-) -> None:
-    """Append one row per collection run, keyed by PRICE_FIELDS.
-    `collected_at` (default: now) is written in UTC."""
+def utc_timestamp(collected_at: datetime | None) -> str:
+    """A row's `datetime` as UTC ISO 8601 text, as stored in the CSV and
+    sent to Tracker."""
+    if collected_at is None:
+        raise ValueError("Row has no datetime (collection time)")
+    if collected_at.tzinfo is None:
+        raise ValueError("A row's datetime must be timezone-aware")
+    return collected_at.astimezone(timezone.utc).isoformat()
+
+
+def append_price_row(row: dict, csv_path: Path = CSV_PATH) -> None:
+    """Append one row per collection run: its `datetime`, PRICE_FIELDS and
+    `notes`."""
+    line = {**row, "datetime": utc_timestamp(row.get("datetime")), "notes": row.get("notes") or ""}
+
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     is_new = not csv_path.exists()
-    if collected_at is None:
-        collected_at = datetime.now(timezone.utc)
-    full_row = {"datetime": collected_at.astimezone(timezone.utc).isoformat(), **row, "notes": notes}
     with open(csv_path, "a", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=PRICE_ROW_FIELDNAMES)
         if is_new:
             writer.writeheader()
-        writer.writerow(full_row)
+        writer.writerow(line)
 
 
 def append_region_reading(item: str, price: float | None, csv_path: Path = REGION_READINGS_CSV_PATH) -> None:
