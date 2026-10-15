@@ -1,8 +1,10 @@
 import json
+from pathlib import Path
 
 import pytest
 
 from meso_market_collector.routine import Step, load_steps, run_routine
+from meso_market_collector.storage import PRICE_FIELDS
 
 
 class FakeActions:
@@ -24,10 +26,7 @@ class FakeActions:
         self.calls.append(("wait_for_stable_image", template))
 
     def click_image(self, template, confidence=None):
-        # Confidence only recorded when a step sets one, so the many
-        # plain-click expectations stay ("click_image", template).
-        call = ("click_image", template) if confidence is None else ("click_image", template, confidence)
-        self.calls.append(call)
+        self.calls.append(("click_image", template, confidence))
 
     def click_image_if_present(self, template, confidence=None, **timing):
         self.calls.append(("click_image_if_present", template, confidence, timing))
@@ -68,8 +67,12 @@ class FakeActions:
     def post_price_row(self):
         self.calls.append(("post_price_row",))
 
-    def clear_old_snapshots(self, max_age_days):
-        self.calls.append(("clear_old_snapshots", max_age_days))
+    def clear_old_snapshots(self, max_age_days, **limits):
+        self.calls.append(("clear_old_snapshots", max_age_days, limits))
+
+
+def _real_steps():
+    return load_steps(Path(__file__).resolve().parent.parent / "config" / "routine.json")
 
 
 def test_real_routine_cleans_up_then_focuses_game_before_any_screen_check():
@@ -77,9 +80,7 @@ def test_real_routine_cleans_up_then_focuses_game_before_any_screen_check():
     then focus the game *before* anything looks at the screen - screenshots
     only see the top window, so an image wait before focusing just times out
     behind whatever else is in front (e.g. the terminal)."""
-    from pathlib import Path
-
-    steps = load_steps(Path(__file__).resolve().parent.parent / "config" / "routine.json")
+    steps = _real_steps()
     actions = [s.action for s in steps]
 
     launch = actions.index("launch")
@@ -175,70 +176,101 @@ def test_run_routine_dispatches_each_step_in_order():
     ]
 
 
-def test_run_routine_dispatches_press_key():
+PROCESSES = ["MapleStory.exe", "nexon_client.exe"]
+
+
+@pytest.mark.parametrize(
+    "step, call",
+    [
+        (Step(action="launch"), ("launch", "the-launch-task")),
+        (Step(action="press_key", key="esc"), ("press_key", "esc")),
+        (Step(action="hotkey", keys=["alt", "f4"]), ("hotkey", ("alt", "f4"))),
+        (Step(action="focus_window", window_title="MapleStory"), ("focus_window", "MapleStory")),
+        (Step(action="run_task", task_name="SomeOtherTask"), ("run_task", "SomeOtherTask")),
+        (Step(action="wait", seconds=25), ("wait", 25)),
+        (Step(action="wait_for_user", message="do the thing"), ("wait_for_user", "do the thing")),
+        (Step(action="save_price_row"), ("save_price_row",)),
+        (Step(action="post_price_row"), ("post_price_row",)),
+        (Step(action="wait_for_process_exit", processes=PROCESSES), ("wait_for_process_exit", tuple(PROCESSES))),
+        (Step(action="record_leftovers", processes=PROCESSES), ("record_leftovers", tuple(PROCESSES))),
+        (Step(action="wait_for_image", template="a.png"), ("wait_for_image", "a.png", None, None)),
+        (
+            Step(action="wait_for_image", template="a.png", message="do the thing", confidence=0.986),
+            ("wait_for_image", "a.png", "do the thing", 0.986),
+        ),
+        (Step(action="click_image", template="a.png", confidence=0.95), ("click_image", "a.png", 0.95)),
+        (
+            Step(action="click_image_if_present", template="a.png"),
+            ("click_image_if_present", "a.png", None, {}),
+        ),
+        (
+            Step(action="click_image_if_present", template="a.png", seconds=10),
+            ("click_image_if_present", "a.png", None, {"seconds": 10}),
+        ),
+        (
+            Step(action="click_until_image", template="a.png", until="b.png"),
+            ("click_until_image", "a.png", "b.png", None, None, {}),
+        ),
+        (
+            Step(
+                action="click_until_image",
+                template="a.png",
+                until="b.png",
+                message="click it by hand",
+                confidence=0.986,
+                attempts=5,
+                retry_seconds=10,
+            ),
+            ("click_until_image", "a.png", "b.png", "click it by hand", 0.986, {"attempts": 5, "retry_seconds": 10}),
+        ),
+        (Step(action="clear_old_snapshots", max_age_days=7), ("clear_old_snapshots", 7, {})),
+        (
+            Step(action="clear_old_snapshots", max_age_days=7, failure_max_age_days=90),
+            ("clear_old_snapshots", 7, {"failure_max_age_days": 90}),
+        ),
+    ],
+    ids=[
+        "launch",
+        "press_key",
+        "hotkey",
+        "focus_window",
+        "run_task",
+        "wait",
+        "wait_for_user",
+        "save_price_row",
+        "post_price_row",
+        "wait_for_process_exit",
+        "record_leftovers",
+        "wait_for_image",
+        "wait_for_image_with_message_and_confidence",
+        "click_image",
+        "click_image_if_present",
+        "click_image_if_present_with_seconds",
+        "click_until_image",
+        "click_until_image_with_tuning",
+        "clear_old_snapshots",
+        "clear_old_snapshots_with_failure_limit",
+    ],
+)
+def test_run_routine_dispatches_each_action(step, call):
+    """Optional settings a step leaves out aren't passed on, so the
+    implementation's own defaults apply."""
     actions = FakeActions()
 
-    run_routine([Step(action="press_key", key="esc")], task_name="x", actions=actions)
+    run_routine([step], task_name="the-launch-task", actions=actions)
 
-    assert actions.calls == [("press_key", "esc")]
-
-
-def test_run_routine_dispatches_hotkey():
-    actions = FakeActions()
-
-    run_routine([Step(action="hotkey", keys=["alt", "f4"])], task_name="x", actions=actions)
-
-    assert actions.calls == [("hotkey", ("alt", "f4"))]
-
-
-def test_run_routine_dispatches_focus_window():
-    actions = FakeActions()
-
-    run_routine([Step(action="focus_window", window_title="MapleStory")], task_name="x", actions=actions)
-
-    assert actions.calls == [("focus_window", "MapleStory")]
-
-
-def test_run_routine_passes_click_image_confidence():
-    actions = FakeActions()
-
-    run_routine(
-        [Step(action="click_image", template="buy_mesos_tab.png", confidence=0.95)], task_name="x", actions=actions
-    )
-
-    assert actions.calls == [("click_image", "buy_mesos_tab.png", 0.95)]
+    assert actions.calls == [call]
 
 
 def test_real_routine_tab_clicks_use_a_strict_confidence():
     """The Sell and Buy tabs look alike (light "... Mesos" label on a plain
     tab) and cross-match at ~0.75-0.94, so the default 0.8 could click the
     wrong one - an exact template scores ~1.0, so 0.95 separates them."""
-    from pathlib import Path
-
-    steps = load_steps(Path(__file__).resolve().parent.parent / "config" / "routine.json")
+    steps = _real_steps()
     tab_clicks = [s for s in steps if s.template in ("sell_mesos_tab.png", "buy_mesos_tab.png")]
 
     assert len(tab_clicks) == 2
     assert all(s.confidence is not None and s.confidence >= 0.95 for s in tab_clicks)
-
-
-def test_run_routine_dispatches_click_image_if_present():
-    actions = FakeActions()
-
-    run_routine(
-        [
-            Step(action="click_image_if_present", template="sell_mesos_tab.png", seconds=10),
-            Step(action="click_image_if_present", template="sell_mesos_tab.png"),
-        ],
-        task_name="x",
-        actions=actions,
-    )
-
-    assert actions.calls == [
-        ("click_image_if_present", "sell_mesos_tab.png", None, {"seconds": 10}),
-        # No `seconds` on the step -> the implementation's own default applies.
-        ("click_image_if_present", "sell_mesos_tab.png", None, {}),
-    ]
 
 
 def test_real_routine_selects_each_tab_before_recording_it():
@@ -246,9 +278,7 @@ def test_real_routine_selects_each_tab_before_recording_it():
     tab (when it isn't already selected) and confirm it before recording
     Sell prices - then the same for Buy - rather than assume which tab is
     showing."""
-    from pathlib import Path
-
-    steps = load_steps(Path(__file__).resolve().parent.parent / "config" / "routine.json")
+    steps = _real_steps()
     described = [(s.action, s.template) for s in steps]
     sell_record, buy_record = [i for i, s in enumerate(steps) if s.action == "record_prices"]
 
@@ -262,158 +292,15 @@ def test_real_routine_selects_each_tab_before_recording_it():
     ]
 
 
-def test_run_routine_dispatches_wait():
-    actions = FakeActions()
-
-    run_routine([Step(action="wait", seconds=25)], task_name="x", actions=actions)
-
-    assert actions.calls == [("wait", 25)]
-
-
 def test_real_routine_pauses_between_seeing_and_clicking_log_in():
     """The Log In button shows before the game accepts clicks, and a missed
     click can't be retried (the hovered button no longer matches) - so the
     first click has to wait."""
-    from pathlib import Path
-
-    steps = load_steps(Path(__file__).resolve().parent.parent / "config" / "routine.json")
+    steps = _real_steps()
     seen = next(i for i, s in enumerate(steps) if s.action == "wait_for_image" and s.template == "login_button.png")
     clicked = next(i for i, s in enumerate(steps) if s.action == "click_until_image" and s.template == "login_button.png")
 
     assert any(s.action == "wait" and s.seconds for s in steps[seen + 1 : clicked])
-
-
-def test_run_routine_dispatches_run_task():
-    actions = FakeActions()
-
-    run_routine([Step(action="run_task", task_name="SomeOtherTask")], task_name="x", actions=actions)
-
-    assert actions.calls == [("run_task", "SomeOtherTask")]
-
-
-def test_run_routine_dispatches_wait_for_image_with_message():
-    actions = FakeActions()
-
-    run_routine(
-        [Step(action="wait_for_image", template="thing.png", message="do the thing")],
-        task_name="x",
-        actions=actions,
-    )
-
-    assert actions.calls == [("wait_for_image", "thing.png", "do the thing", None)]
-
-
-def test_run_routine_dispatches_wait_for_image_without_message():
-    actions = FakeActions()
-
-    run_routine([Step(action="wait_for_image", template="thing.png")], task_name="x", actions=actions)
-
-    assert actions.calls == [("wait_for_image", "thing.png", None, None)]
-
-
-def test_run_routine_dispatches_wait_for_image_with_confidence():
-    # e.g. login_button.png needs a stricter-than-default confidence to tell
-    # the button's disabled and enabled states apart - see config/routine.json.
-    actions = FakeActions()
-
-    run_routine(
-        [Step(action="wait_for_image", template="login_button.png", confidence=0.986)],
-        task_name="x",
-        actions=actions,
-    )
-
-    assert actions.calls == [("wait_for_image", "login_button.png", None, 0.986)]
-
-
-def test_run_routine_dispatches_click_until_image_with_defaults():
-    actions = FakeActions()
-
-    run_routine(
-        [Step(action="click_until_image", template="login_button.png", until="quick_move_button.png")],
-        task_name="x",
-        actions=actions,
-    )
-
-    # Unset attempts/retry_seconds aren't passed, so the implementation's
-    # own defaults apply.
-    assert actions.calls == [
-        ("click_until_image", "login_button.png", "quick_move_button.png", None, None, {})
-    ]
-
-
-def test_run_routine_dispatches_click_until_image_with_tuning():
-    actions = FakeActions()
-
-    run_routine(
-        [
-            Step(
-                action="click_until_image",
-                template="login_button.png",
-                until="quick_move_button.png",
-                message="click it by hand",
-                confidence=0.986,
-                attempts=5,
-                retry_seconds=10,
-            )
-        ],
-        task_name="x",
-        actions=actions,
-    )
-
-    assert actions.calls == [
-        (
-            "click_until_image",
-            "login_button.png",
-            "quick_move_button.png",
-            "click it by hand",
-            0.986,
-            {"attempts": 5, "retry_seconds": 10},
-        )
-    ]
-
-
-def test_run_routine_dispatches_wait_for_process_exit():
-    actions = FakeActions()
-
-    run_routine(
-        [Step(action="wait_for_process_exit", processes=["MapleStory.exe", "nexon_client.exe"])],
-        task_name="x",
-        actions=actions,
-    )
-
-    assert actions.calls == [("wait_for_process_exit", ("MapleStory.exe", "nexon_client.exe"))]
-
-
-def test_run_routine_dispatches_wait_for_user():
-    actions = FakeActions()
-
-    run_routine([Step(action="wait_for_user", message="do the thing")], task_name="x", actions=actions)
-
-    assert actions.calls == [("wait_for_user", "do the thing")]
-
-
-def test_run_routine_dispatches_save_price_row():
-    actions = FakeActions()
-
-    run_routine([Step(action="save_price_row")], task_name="x", actions=actions)
-
-    assert actions.calls == [("save_price_row",)]
-
-
-def test_run_routine_dispatches_post_price_row():
-    actions = FakeActions()
-
-    run_routine([Step(action="post_price_row")], task_name="x", actions=actions)
-
-    assert actions.calls == [("post_price_row",)]
-
-
-def test_run_routine_dispatches_clear_old_snapshots():
-    actions = FakeActions()
-
-    run_routine([Step(action="clear_old_snapshots", max_age_days=7)], task_name="x", actions=actions)
-
-    assert actions.calls == [("clear_old_snapshots", 7)]
 
 
 def test_run_routine_rejects_unknown_action():
@@ -423,58 +310,21 @@ def test_run_routine_rejects_unknown_action():
         run_routine([Step(action="teleport")], task_name="x", actions=actions)
 
 
-def test_run_routine_passes_failure_max_age_days_to_clear_old_snapshots():
-    calls = []
-
-    class Actions(FakeActions):
-        def clear_old_snapshots(self, max_age_days, **limits):
-            calls.append((max_age_days, limits))
-
-    run_routine(
-        [Step(action="clear_old_snapshots", max_age_days=7, failure_max_age_days=90)],
-        task_name="x",
-        actions=Actions(),
-    )
-
-    assert calls == [(7, {"failure_max_age_days": 90})]
-
-
 def test_real_routine_keeps_failure_screenshots_longer_than_ordinary_snapshots():
-    from pathlib import Path
-
-    steps = load_steps(Path(__file__).resolve().parent.parent / "config" / "routine.json")
+    steps = _real_steps()
     (cleanup,) = [s for s in steps if s.action == "clear_old_snapshots"]
 
     assert cleanup.failure_max_age_days is not None
     assert cleanup.failure_max_age_days > cleanup.max_age_days
 
 
-def test_run_routine_dispatches_record_leftovers():
-    actions = FakeActions()
-
-    run_routine(
-        [Step(action="record_leftovers", processes=["MapleStory.exe", "nexon_client.exe"])],
-        task_name="x",
-        actions=actions,
-    )
-
-    assert actions.calls == [("record_leftovers", ("MapleStory.exe", "nexon_client.exe"))]
-
-
 def test_real_routine_records_leftovers_before_closing_anything():
-    from pathlib import Path
-
-    steps = load_steps(Path(__file__).resolve().parent.parent / "config" / "routine.json")
+    steps = _real_steps()
 
     assert steps[0] == Step(action="record_leftovers", processes=["MapleStory.exe", "nexon_client.exe"])
 
 
 def test_real_routine_records_every_price_field_once():
-    from pathlib import Path
-
-    from meso_market_collector.storage import PRICE_FIELDS
-
-    steps = load_steps(Path(__file__).resolve().parent.parent / "config" / "routine.json")
-    recorded = [field for s in steps if s.action == "record_prices" for field in s.regions.values()]
+    recorded = [field for s in _real_steps() if s.action == "record_prices" for field in s.regions.values()]
 
     assert sorted(recorded) == sorted(PRICE_FIELDS)
