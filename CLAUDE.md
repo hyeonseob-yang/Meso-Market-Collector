@@ -2,9 +2,9 @@
 
 ## Test-driven development
 
-Use test-driven development for every change to Python behaviour (docs,
-comments, and tuning values in `config/*.json` don't need a test first —
-though a change to `config/routine.json`'s step order does, see below):
+Use test-driven development for every change to Python behaviour. Docs,
+comments and tuning values in `config/*.json` don't need a test first, but a
+change to `config/routine.json`'s step order does (see below).
 
 1. **Write a failing test first** that describes the behaviour you're about
    to add or the bug you're about to fix.
@@ -29,11 +29,31 @@ Run the tests with the project venv:
 - Pure logic (`config.py`, `storage.py`, `parser.py`'s text/plausibility
   functions, `routine.py` dispatch, `api_client.py`) — test directly.
 - `screen_actions.py` — test with fakes swapped in for `pyautogui`,
-  `pygetwindow` and `time` (see `tests/test_screen_actions.py`); the file
-  skips itself where no display is available.
+  `pygetwindow` and `time` (see `tests/test_screen_actions.py`).
+  `session.py` — test with `ScreenActions` and the routine faked (see
+  `tests/test_session.py`). Both test files skip themselves where no display
+  is available.
 - `config/routine.json` ordering — guarded by tests that load the real file
   (see `tests/test_routine.py`).
 - Things that only show up against the real game (template matching,
   OCR accuracy, window focus) can't be unit-tested: still write the tests
   that *can* be written first, then verify the rest with a real session
   run, and say which parts were verified live rather than by tests.
+
+To verify live, start a run with `schtasks /run /tn "MesoMarketCollector_Session"`
+and check the end of `data/session.log` and the new files in
+`data/snapshots/`. Scheduled collection runs on a separate machine, so a run
+on a development machine is a manual test.
+
+## Code style
+
+Inside a longer function, separate its distinct steps (e.g. validate, then
+build, then return) with a single blank line. Use this sparingly; short
+functions don't need it.
+
+Keep comments and docstrings minimal: at most a line or two giving a reason
+the code doesn't show, and none where the code is self-explanatory. Put the
+history of a change — what was tried, what went wrong — in the commit
+message, not the code. The exception is a usage header at the top of a
+standalone tool (see `tools/find_coords.py`): what it does, when to use it,
+and the exact command.

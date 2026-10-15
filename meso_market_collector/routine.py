@@ -24,6 +24,7 @@ class Step:
     task_name: str | None = None
     message: str | None = None
     max_age_days: float | None = None
+    failure_max_age_days: float | None = None
     confidence: float | None = None
     processes: list[str] | None = None
     until: str | None = None
@@ -67,11 +68,12 @@ class GameActions(Protocol):
     def focus_window(self, window_title: str) -> None: ...
     def run_task(self, task_name: str) -> None: ...
     def wait_for_process_exit(self, processes: list[str]) -> None: ...
+    def record_leftovers(self, processes: list[str]) -> None: ...
     def wait_for_user(self, message: str) -> None: ...
     def wait(self, seconds: float) -> None: ...
     def save_price_row(self) -> None: ...
     def post_price_row(self) -> None: ...
-    def clear_old_snapshots(self, max_age_days: float) -> None: ...
+    def clear_old_snapshots(self, max_age_days: float, failure_max_age_days: float | None = None) -> None: ...
 
 
 def run_routine(steps: list[Step], task_name: str, actions: GameActions) -> None:
@@ -112,6 +114,8 @@ def run_routine(steps: list[Step], task_name: str, actions: GameActions) -> None
             actions.run_task(step.task_name)
         elif step.action == "wait_for_process_exit":
             actions.wait_for_process_exit(step.processes)
+        elif step.action == "record_leftovers":
+            actions.record_leftovers(step.processes)
         elif step.action == "wait_for_user":
             actions.wait_for_user(step.message)
         elif step.action == "wait":
@@ -121,6 +125,9 @@ def run_routine(steps: list[Step], task_name: str, actions: GameActions) -> None
         elif step.action == "post_price_row":
             actions.post_price_row()
         elif step.action == "clear_old_snapshots":
-            actions.clear_old_snapshots(step.max_age_days)
+            limits = (
+                {} if step.failure_max_age_days is None else {"failure_max_age_days": step.failure_max_age_days}
+            )
+            actions.clear_old_snapshots(step.max_age_days, **limits)
         else:
             raise ValueError(f"Unknown action: {step.action!r}")

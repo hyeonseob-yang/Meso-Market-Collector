@@ -7,13 +7,13 @@ from meso_market_collector.parser import _parse_price_text, _prepare_image, find
 
 def _row(average, buy, sell):
     return {
-        "Average": average,
-        "Buy Buyout 100M": buy[0],
-        "Buy Buyout 1B": buy[1],
-        "Buy Buyout 10B": buy[2],
-        "Sell Buyout 100M": sell[0],
-        "Sell Buyout 1B": sell[1],
-        "Sell Buyout 10B": sell[2],
+        "average": average,
+        "buy100M": buy[0],
+        "buy1B": buy[1],
+        "buy10B": buy[2],
+        "sell100M": sell[0],
+        "sell1B": sell[1],
+        "sell10B": sell[2],
     }
 
 
@@ -34,14 +34,14 @@ def test_find_implausible_prices_catches_dropped_trailing_digit():
     # Tracker id 52: Buy 100M showed 427, OCR dropped the 7.
     row = _row(419, (42, 427, 427), (418, 418, 418))
 
-    assert find_implausible_prices(row) == ["Buy Buyout 100M"]
+    assert find_implausible_prices(row) == ["buy100M"]
 
 
 def test_find_implausible_prices_catches_both_sides_at_once():
     # Tracker id 55: both 100M boxes lost their trailing 7.
     row = _row(419, (42, 427, 427), (41, 417, 417))
 
-    assert sorted(find_implausible_prices(row)) == ["Buy Buyout 100M", "Sell Buyout 100M"]
+    assert sorted(find_implausible_prices(row)) == ["buy100M", "sell100M"]
 
 
 def test_find_implausible_prices_catches_wrong_digit_within_a_side():
@@ -49,13 +49,13 @@ def test_find_implausible_prices_catches_wrong_digit_within_a_side():
     # more than 10% off its side's other tiers.
     row = _row(424, (472, 427, 427), (420, 420, 420))
 
-    assert find_implausible_prices(row) == ["Buy Buyout 100M"]
+    assert find_implausible_prices(row) == ["buy100M"]
 
 
 def test_find_implausible_prices_catches_misread_average():
     row = _row(41, (420, 420, 420), (417, 417, 417))
 
-    assert find_implausible_prices(row) == ["Average"]
+    assert find_implausible_prices(row) == ["average"]
 
 
 def test_find_implausible_prices_ignores_missing_values():

@@ -71,13 +71,61 @@ def test_focus_window_waits_for_window_to_appear(monkeypatch, clock):
     assert clock.now >= 1.0  # waited through the two empty polls
 
 
-def test_focus_window_times_out_if_window_never_appears(monkeypatch, clock):
+@pytest.fixture
+def screenshots(monkeypatch, tmp_path):
+    """Fakes the screen grab and records each snapshot saved as (name, image)."""
+    saved = []
+
+    def save_snapshot(item, image):
+        saved.append((item, image))
+        return tmp_path / f"{item}.png"
+
+    monkeypatch.setattr(screen_actions, "save_snapshot", save_snapshot)
+    monkeypatch.setattr(screen_actions, "pyautogui", SimpleNamespace(screenshot=lambda: "the screen"))
+    return saved
+
+
+def test_focus_window_times_out_if_window_never_appears(monkeypatch, clock, screenshots):
     monkeypatch.setattr(screen_actions, "gw", _fake_gw([[]]))
 
     with pytest.raises(TimeoutError, match="MapleStory"):
         screen_actions.ScreenActions(poll_interval=0.5, timeout=3).focus_window("MapleStory")
 
     assert clock.now >= 3
+    assert screenshots == [("timeout_MapleStory", "the screen")]
+
+
+def _running(monkeypatch, *names):
+    monkeypatch.setattr(screen_actions.ScreenActions, "_is_running", lambda self, name: name in names)
+
+
+def test_record_leftovers_screenshots_what_a_previous_run_left_open(monkeypatch, screenshots, capsys):
+    _running(monkeypatch, "nexon_client.exe")
+
+    screen_actions.ScreenActions().record_leftovers(["MapleStory.exe", "nexon_client.exe"])
+
+    assert screenshots == [("timeout_leftover", "the screen")]
+    out = capsys.readouterr().out
+    assert "nexon_client.exe" in out
+    assert "MapleStory.exe" not in out
+
+
+def test_record_leftovers_names_every_process_still_running(monkeypatch, screenshots, capsys):
+    _running(monkeypatch, "MapleStory.exe", "nexon_client.exe")
+
+    screen_actions.ScreenActions().record_leftovers(["MapleStory.exe", "nexon_client.exe"])
+
+    out = capsys.readouterr().out
+    assert "MapleStory.exe" in out and "nexon_client.exe" in out
+
+
+def test_record_leftovers_does_nothing_when_nothing_is_running(monkeypatch, screenshots, capsys):
+    _running(monkeypatch)
+
+    screen_actions.ScreenActions().record_leftovers(["MapleStory.exe", "nexon_client.exe"])
+
+    assert screenshots == []
+    assert capsys.readouterr().out == ""
 
 
 class FocusableWindow(FakeWindow):
@@ -268,21 +316,43 @@ def test_click_image_if_present_carries_on_when_template_never_shows(monkeypatch
 
 def _readings(buy_100m):
     return {
-        "Average": 420,
-        "Buy Buyout 100M": buy_100m,
-        "Buy Buyout 1B": 427,
-        "Buy Buyout 10B": 427,
-        "Sell Buyout 100M": 418,
-        "Sell Buyout 1B": 418,
-        "Sell Buyout 10B": 418,
+        "average": 420,
+        "buy100M": buy_100m,
+        "buy1B": 427,
+        "buy10B": 427,
+        "sell100M": 418,
+        "sell1B": 418,
+        "sell10B": 418,
     }
+
+
+class SavedRows(list):
+    """(row, notes) per saved row, plus the collection time each was given."""
+
+    def __init__(self):
+        super().__init__()
+        self.times = []
 
 
 @pytest.fixture
 def saved_rows(monkeypatch):
-    saved = []
-    monkeypatch.setattr(screen_actions, "append_price_row", lambda row, notes="": saved.append((dict(row), notes)))
+    saved = SavedRows()
+
+    def append_price_row(row, collected_at, notes=""):
+        saved.append((dict(row), notes))
+        saved.times.append(collected_at)
+
+    monkeypatch.setattr(screen_actions, "append_price_row", append_price_row)
     return saved
+
+
+def test_save_price_row_gives_the_csv_and_tracker_the_same_time(saved_rows):
+    actions = screen_actions.ScreenActions()
+    actions._readings = _readings(buy_100m=427)
+
+    actions.save_price_row()
+
+    assert saved_rows.times == [actions._last_saved_at]
 
 
 def test_save_price_row_keeps_an_implausible_price_and_notes_it(saved_rows):
@@ -294,10 +364,10 @@ def test_save_price_row_keeps_an_implausible_price_and_notes_it(saved_rows):
 
     actions.save_price_row()
 
-    note = "Possible OCR misread: Buy Buyout 100M=42"
+    note = "Possible OCR misread: buy100M=42"
     assert saved_rows == [(_readings(buy_100m=42), note)]
     # ...and the same note rides along to Tracker with the row.
-    assert actions._last_saved_row == {**_readings(buy_100m=42), "Notes": note}
+    assert actions._last_saved_row == {**_readings(buy_100m=42), "notes": note}
 
 
 def test_save_price_row_leaves_notes_blank_for_a_plausible_row(saved_rows):
@@ -307,4 +377,38 @@ def test_save_price_row_leaves_notes_blank_for_a_plausible_row(saved_rows):
     actions.save_price_row()
 
     assert saved_rows == [(_readings(buy_100m=427), "")]
-    assert actions._last_saved_row["Notes"] == ""
+    assert actions._last_saved_row["notes"] == ""
+
+
+def test_save_price_row_records_the_runs_notes(saved_rows):
+    """A note given for the whole run (e.g. "manual", from session's
+    --notes) is saved with the row and sent to Tracker."""
+    actions = screen_actions.ScreenActions(notes="manual")
+    actions._readings = _readings(buy_100m=427)
+
+    actions.save_price_row()
+
+    assert saved_rows == [(_readings(buy_100m=427), "manual")]
+    assert actions._last_saved_row["notes"] == "manual"
+
+
+def test_save_price_row_keeps_the_runs_notes_alongside_a_misread_note(saved_rows):
+    actions = screen_actions.ScreenActions(notes="manual")
+    actions._readings = _readings(buy_100m=42)
+
+    actions.save_price_row()
+
+    note = "manual; Possible OCR misread: buy100M=42"
+    assert saved_rows == [(_readings(buy_100m=42), note)]
+    assert actions._last_saved_row["notes"] == note
+
+
+def test_clear_old_snapshots_passes_the_failure_limit_through(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        screen_actions, "clear_old_snapshots", lambda max_age_days, **limits: calls.append((max_age_days, limits))
+    )
+
+    screen_actions.ScreenActions().clear_old_snapshots(7, failure_max_age_days=90)
+
+    assert calls == [(7, {"failure_max_age_days": 90})]

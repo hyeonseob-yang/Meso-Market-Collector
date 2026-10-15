@@ -1,445 +1,218 @@
 # Meso Market Collector
 
-Automates recording in-game Meso market price changes: launches the game,
-logs in, navigates to the Meso Market, and reads the Sell/Buy price boxes —
-using [PyAutoGUI](https://pyautogui.readthedocs.io/) for screen capture and
-UI automation and [Pillow](https://pillow.readthedocs.io/) for image
-handling.
+Records MapleStory's Meso Market prices automatically. Each run launches the
+game, logs in, opens the Meso Market, reads the Average price and the
+100M / 1B / 10B Buy and Sell prices off the screen with OCR, saves them as
+one row, posts the row to
+[Meso-Market-Tracker](../Meso-Market-Tracker), and closes the game. Run on
+an hourly schedule, it builds a price history for analysis.
 
-## Setup
+## Requirements
 
-This project is Windows-only, not just "needs a real desktop" — a few
-specific things about it don't run anywhere else:
+- Windows, with MapleStory installed through the Nexon launcher and the
+  launcher signed in (the game then needs only a Log In click).
+- Python 3.10+.
+- The [Tesseract](https://github.com/UB-Mannheim/tesseract/wiki) OCR engine:
+  `winget install --id tesseract-ocr.tesseract -e`. The default install
+  location is found automatically.
 
-- `screen_actions.py` imports [PyGetWindow](https://github.com/asweigart/pygetwindow)
-  for `focus_window`, which raises `NotImplementedError` at import time on
-  Linux ("PyGetWindow currently does not support Linux") - the module fails
-  to load before PyAutoGUI's own screen access even comes into play.
-- `launch`/`run_task` shell out to `schtasks`, the Windows Task Scheduler
-  CLI, to start/kill the game - chosen specifically to get around Windows
-  UAC elevation (see below). There's no equivalent command on other OSes.
-- MapleStory itself has no native Linux client; running it via Wine/Proton
-  isn't something this project targets or accounts for (elevation, window
-  titles, and process names would all differ).
-
-Develop and run it directly on Windows — clone straight onto the Windows
-filesystem (not through a WSL mount) and use Windows Python throughout,
-from PowerShell/cmd:
+## Install
 
 ```powershell
-git clone <this-repo-url>
+git clone https://github.com/hyeonseob-yang/Meso-Market-Collector.git
 cd Meso-Market-Collector
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
 ```
 
-(If activation fails with an execution-policy error rather than running,
-run `Set-ExecutionPolicy -Scope Process RemoteSigned` first and retry.)
+If activation fails with an execution-policy error, run
+`Set-ExecutionPolicy -Scope Process RemoteSigned` and retry.
 
-`routine.py` and everything else that doesn't touch a real screen
-(`config.py`, `storage.py`, `api_client.py`) is plain, portable Python, so
-the whole non-screen test suite also just runs there with `pytest` — no
-separate Linux/WSL venv needed for that anymore.
+## Setup
 
-## Configure
+Do these once per machine.
 
-1. **Region boxes.** The 4 Sell-tab and 4 Buy-tab price boxes sit at the
-   same on-screen position — only the tab changes — so `config/regions.json`
-   defines just one shared set. They're also stacked in a column with
-   identical `left`/`width`/`height`, only `top` differing per row, so
-   they're defined with the "column" shorthand, with an explicit `names`
-   list (rather than the shorthand's default `meso_1`, `meso_2`, ... —
-   the actual tier each box shows is more meaningful than its position):
-   ```json
-   {
-     "meso": {
-       "left": 412, "width": 90, "height": 22,
-       "tops": [588, 620, 652, 684],
-       "names": ["meso_average", "meso_100m", "meso_1b", "meso_10b"]
-     }
-   }
-   ```
-   see [`config.py`](meso_market_collector/config.py). A plain box
-   (`{"left", "top", "width", "height"}`, no `tops`) still works too, for
-   anything that isn't a column-shaped layout.
+### 1. Scheduled tasks
 
-   With the game window in place, find the pixel coordinates:
-   ```bash
-   python -m tools.find_coords
-   ```
-   Copy [`config/regions.json`](config/regions.json) to
-   `config/regions.local.json` and edit that copy — it's gitignored, and
-   used instead of `regions.json` whenever it exists, so each machine keeps
-   its own coordinates without touching the committed default (which is
-   still used when there's no local copy). `meso_average` reads
-   identically regardless of which tab is showing (confirmed, not just
-   assumed), so it's only captured once, on the Sell pass. Each
-   `record_prices` step in [`config/routine.json`](config/routine.json)
-   maps region names directly to their final CSV column name — e.g.
-   `{"meso_100m": "Sell Buyout 100M"}` — so what you see in
-   `data/price_history.csv` matches what's in `config/routine.json`
-   directly, with no separate relabeling step in between.
+The game runs elevated, so launching it, closing it, and running the
+collector all go through Scheduled Tasks that run elevated without a UAC
+prompt. Open an **Administrator** PowerShell and `cd` to this repo's
+folder first — an admin shell starts in `C:\Windows\System32`. Then paste
+the whole block:
 
-2. **Launch task.** The game is started via a Windows Scheduled Task rather
-   than running the launcher/game exe directly — see "Why a Scheduled Task"
-   below for why. One-time setup, from an **Administrator** PowerShell:
-   ```powershell
-   $shell = New-Object -ComObject WScript.Shell
-   $sc = $shell.CreateShortcut("$env:USERPROFILE\Desktop\MapleStory.lnk")  # or wherever your game's shortcut is
-   $sc.TargetPath; $sc.Arguments  # sanity check: launcher exe, e.g. nxl://launch/10100
+```powershell
+if (-not (Test-Path .\.venv\Scripts\python.exe)) { throw "Not in the repo folder - cd there first, then paste this again" }
 
-   $action = New-ScheduledTaskAction -Execute $sc.TargetPath -Argument $sc.Arguments
-   $principal = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$env:USERNAME" -LogonType Interactive -RunLevel Highest
-   $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date)
-   Register-ScheduledTask -TaskName "MesoMarketCollector_MapleStoryViaLauncher" -Action $action -Principal $principal -Trigger $trigger -Force
-   ```
-   The action is built straight from the shortcut (`$sc`), so there's
-   nothing to fill in by hand. If the sanity-check line prints nothing, the
-   shortcut path is wrong — `tools/find_shortcut_target.ps1` lists any
-   Maple shortcuts on your desktop(s) along with their targets/arguments.
-   Verify it works with
-   `schtasks /run /tn "MesoMarketCollector_MapleStoryViaLauncher"` from a
-   normal (non-admin) shell — it should go straight to the game's login
-   screen with no prompt.
+$principal = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$env:USERNAME" -LogonType Interactive -RunLevel Highest
+$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date)
 
-   If nothing opens, check the task's last result:
-   ```powershell
-   Get-ScheduledTaskInfo -TaskName "MesoMarketCollector_MapleStoryViaLauncher" | Select-Object LastRunTime, LastTaskResult
-   ```
-   `2147942402` (`0x80070002`, file not found) means the task's program
-   path doesn't exist — e.g. it was registered with the wrong path, or the
-   launcher moved. Fix the existing task in place (Administrator
-   PowerShell, with `$sc` set as above) rather than re-registering:
-   ```powershell
-   Set-ScheduledTask -TaskName "MesoMarketCollector_MapleStoryViaLauncher" -Action (New-ScheduledTaskAction -Execute $sc.TargetPath -Argument $sc.Arguments)
-   ```
+# Launch the game, using your MapleStory desktop shortcut's target
+$sc = (New-Object -ComObject WScript.Shell).CreateShortcut("$env:USERPROFILE\Desktop\MapleStory.lnk")
+$sc.TargetPath; $sc.Arguments   # should print the launcher exe and e.g. nxl://launch/10100
+$action = New-ScheduledTaskAction -Execute $sc.TargetPath -Argument $sc.Arguments
+Register-ScheduledTask -TaskName "MesoMarketCollector_MapleStoryViaLauncher" -Action $action -Principal $principal -Trigger $trigger -Force
 
-3. **Close task.** Closing the game hits a related problem — see "Why a
-   Scheduled Task" below — so it's also done via a second task, this one
-   just running `taskkill`. One-time setup, from an **Administrator**
-   PowerShell:
-   ```powershell
-   $action = New-ScheduledTaskAction -Execute "taskkill.exe" -Argument "/F /IM MapleStory.exe"
-   $principal = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$env:USERNAME" -LogonType Interactive -RunLevel Highest
-   $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date)
-   Register-ScheduledTask -TaskName "MesoMarketCollector_KillMapleStory" -Action $action -Principal $principal -Trigger $trigger -Force
-   ```
-   (Adjust `/IM MapleStory.exe` if your game's actual process name differs
-   — check with `Get-Process` while it's running.) Verify with
-   `schtasks /run /tn "MesoMarketCollector_KillMapleStory"` from a normal
-   (non-admin) shell while the game is open — it should close immediately,
-   no prompt.
+# Close the game
+$action = New-ScheduledTaskAction -Execute "taskkill.exe" -Argument "/F /IM MapleStory.exe"
+Register-ScheduledTask -TaskName "MesoMarketCollector_KillMapleStory" -Action $action -Principal $principal -Trigger $trigger -Force
 
-4. **Close-launcher task.** The launcher (e.g. `nexon_client.exe`) also
-   needs closing, and — surprisingly — it needs the same elevated-task
-   treatment even though the launcher itself never shows a UAC prompt: its
-   process is a multi-process Electron-style app, and only *some* of its
-   processes run at normal integrity — a plain `taskkill`/`Stop-Process`
-   silently leaves the elevated ones running ("Access is denied" per
-   process, easy to miss if you don't check each one). Same one-time
-   setup as above:
-   ```powershell
-   $action = New-ScheduledTaskAction -Execute "taskkill.exe" -Argument "/F /IM nexon_client.exe"
-   $principal = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$env:USERNAME" -LogonType Interactive -RunLevel Highest
-   $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date)
-   Register-ScheduledTask -TaskName "MesoMarketCollector_KillNexonLauncher" -Action $action -Principal $principal -Trigger $trigger -Force
-   ```
-   Verify with `Get-Process -Name nexon_client` before and after running
-   `schtasks /run /tn "MesoMarketCollector_KillNexonLauncher"` — the count
-   should drop to zero, not just decrease.
+# Close the launcher
+$action = New-ScheduledTaskAction -Execute "taskkill.exe" -Argument "/F /IM nexon_client.exe"
+Register-ScheduledTask -TaskName "MesoMarketCollector_KillNexonLauncher" -Action $action -Principal $principal -Trigger $trigger -Force
 
-5. **Template images.** The routine finds what to click, and confirms
-   where it is, by matching template screenshots — see
-   [`assets/templates/README.md`](assets/templates/README.md) for which
-   ones are used and how to recapture them. Templates only match at the
-   resolution/UI scale they were snipped at, so if this machine's display
-   differs from the one the committed templates came from, put your own
-   snips in `assets/templates.local/` (gitignored, same filenames) — each
-   one found there is used instead of the shared copy, without changing
-   anything for other machines.
+# Run the collector, logging to data\session.log
+$repo = (Get-Location).Path
+$action = New-ScheduledTaskAction -Execute "cmd.exe" -WorkingDirectory $repo -Argument "/c `"(if not exist data mkdir data) & `"$repo\.venv\Scripts\python.exe`" -u -m meso_market_collector.session --task-name MesoMarketCollector_MapleStoryViaLauncher >> data\session.log 2>&1`""
+Register-ScheduledTask -TaskName "MesoMarketCollector_Session" -Action $action -Principal $principal -Trigger $trigger -Force
+```
 
-6. **Routine steps.** [`config/routine.json`](config/routine.json) holds
-   the ordered cleanup → launch → login → navigate → record → close
-   sequence, fully automated. Cleanup runs both close tasks first and waits
-   for the processes to actually exit (`wait_for_process_exit`), so a
-   leftover game/launcher — which the launch task's `nxl://` link would
-   otherwise be handed to, and the likely cause of an occasional UAC
-   prompt at launch — never carries into a run. (This also closes a
-   launcher you opened yourself.) The launcher starts the game already
-   signed in, so login is just a click on the Log In button, followed by
-   Quick Move, Meso Market, and the Buy tab. The Log In click is a
-   `click_until_image` step: if Quick Move hasn't appeared 30 seconds after
-   a click, it clicks again (up to 10 times) — the game sometimes ignores a
-   click while it's still getting ready. Each tab is confirmed by a
-   `wait_for_image` checkpoint before recording, which prints what it's
-   waiting for so you can finish a step by hand if a click ever misses. Any
-   wait that times out saves a full screenshot to `data/snapshots/`
-   (`timeout_<template>_<timestamp>.png`) so an unattended failure can be
-   diagnosed afterward. Edit it if the actual flow differs.
+If the shortcut line prints nothing, your shortcut is somewhere else (for
+example, OneDrive moves the desktop to `OneDrive\Desktop`). Right-click the
+MapleStory shortcut → **Properties** → **Open File Location** to see its
+full path, put that path in place of
+`$env:USERPROFILE\Desktop\MapleStory.lnk`, and paste the block again.
 
-7. **Session task.** The collector itself has to run elevated (see
-   "Simulated input in the game" below), so it gets a Scheduled Task too —
-   then any normal shell (or a schedule) can start it without a UAC
-   prompt. One-time setup, from an **Administrator** PowerShell in the
-   repo root:
-   ```powershell
-   $repo = (Get-Location).Path
-   $action = New-ScheduledTaskAction -Execute "cmd.exe" -WorkingDirectory $repo -Argument "/c `"(if not exist data mkdir data) & `"$repo\.venv\Scripts\python.exe`" -u -m meso_market_collector.session --task-name MesoMarketCollector_MapleStoryViaLauncher >> data\session.log 2>&1`""
-   $principal = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$env:USERNAME" -LogonType Interactive -RunLevel Highest
-   $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date)
-   Register-ScheduledTask -TaskName "MesoMarketCollector_Session" -Action $action -Principal $principal -Trigger $trigger -Force
-   ```
-   The working directory matters — the default `--routine` path
-   (`config/routine.json`) is relative to it. `data/` is gitignored, so a
-   fresh clone doesn't have it, and `cmd` won't create it for the `>>`
-   redirect (the whole run would fail before Python starts, with no log) —
-   hence the `(if not exist data mkdir data)` first. The parentheses are
-   required: without them `cmd` treats everything after the `&` as part of
-   the `if`, so once `data/` exists nothing runs at all (and the task still
-   reports success). Output is appended to
-   `data/session.log` rather than shown, since the task's console window
-   closes as soon as the run ends (taking any error with it).
+Check the launch task from a normal shell: it should open the game's login
+screen with no prompt.
 
-8. **Hourly schedule (optional).** To have the session task run by itself
-   every hour, give it a repeating trigger — from an **Administrator**
-   PowerShell:
-   ```powershell
-   $start = (Get-Date).Date.AddHours((Get-Date).Hour + 1)   # next full hour
-   $trigger = New-ScheduledTaskTrigger -Once -At $start -RepetitionInterval (New-TimeSpan -Hours 1)
-   Set-ScheduledTask -TaskName "MesoMarketCollector_Session" -Trigger $trigger
-   ```
-   This only replaces the trigger; the task's command and other settings
-   are untouched. Check it with
-   `(Get-ScheduledTaskInfo -TaskName "MesoMarketCollector_Session").NextRunTime`
-   — it should show the next full hour. To go back to manual runs only:
-   ```powershell
-   Set-ScheduledTask -TaskName "MesoMarketCollector_Session" -Trigger (New-ScheduledTaskTrigger -Once -At (Get-Date))
-   ```
-   What a scheduled run needs, and does, on the machine:
-   - **It takes over the screen for a few minutes.** The game launches
-     fullscreen and has to stay the front window — screen checks only see
-     what's on top, so clicking into another window mid-run makes it time
-     out.
-   - **It closes MapleStory and the Nexon launcher** at the start and end
-     of every run, including a game you're playing at the time.
-   - **You have to be logged in with the screen unlocked** — the task runs
-     in your desktop session, and screen capture doesn't work on a locked
-     screen.
-   - **It doesn't start on battery, and stops if unplugged mid-run** —
-     Windows' default for scheduled tasks, which all four tasks here keep.
-     A task started on battery just sits in the `Queued` state with
-     nothing in `data/session.log`, then starts when plugged in. To allow
-     battery runs instead, apply
-     `New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries`
-     to each task with `Set-ScheduledTask -Settings`.
-   - **A missed hour isn't made up** (asleep, logged out, on battery) —
-     it waits for the next one.
-   - **A failed run leaves the game open** until the next run's cleanup
-     closes it; the error is in `data/session.log`, with a screenshot in
-     `data/snapshots/` if a screen check timed out.
+```powershell
+schtasks /run /tn "MesoMarketCollector_MapleStoryViaLauncher"
+```
 
-9. **Running with the lid closed (optional, laptops).** Closing the lid
-   switches the built-in screen off, and with no other display Windows
-   has nothing for the game to render to or the collector to capture. A
-   virtual display driver gives it one — the software equivalent of an
-   HDMI dummy plug:
-   1. Install the [Virtual Display Driver](https://github.com/VirtualDrivers/Virtual-Display-Driver)
-      control app:
-      ```powershell
-      winget install --id VirtualDrivers.Virtual-Display-Driver -e
-      ```
-   2. Run **VDD Control** as administrator and click **Install Driver**.
-   3. In Settings → System → Display, set the two displays to **Extend**
-      (right after install they're mirrored, shown as one box labelled
-      `1|2`), keep the laptop screen as the main display, and give the
-      virtual display the **same resolution and scale as the laptop
-      screen** (here 1920×1080 at 125%) — templates and region boxes only
-      match at the resolution/scale they were captured at.
-   4. Set the lid close action to **Do nothing** when plugged in (Control
-      Panel → Power Options → "Choose what closing the lid does").
+### 2. Screen regions and templates
 
-   With the lid open nothing changes: the laptop screen is still the main
-   display the collector captures. With it closed, the virtual display
-   becomes the only (and so main) one, and the game launches there
-   instead. The switch takes a few seconds, during which screenshots are
-   black — harmless, since every screen check polls.
+The committed coordinates and template images match one specific display.
+On a machine with a different resolution or scaling, make local copies
+(both are gitignored and used in place of the committed ones):
 
-   Uninstall the driver (same app) before a major Intel/NVIDIA graphics
-   driver update, then reinstall after — the project warns of black-screen
-   / display-priority problems otherwise. Lid-closed runs still need AC
-   power and a logged-in, unlocked session, same as step 8.
+- **Price boxes:** copy `config/regions.json` to
+  `config/regions.local.json`. With the Meso Market open, run
+  `python -m tools.find_coords` to read pixel coordinates, and edit the
+  copy. `tops` lists the top edge of the Average, 100M, 1B and 10B boxes.
+- **Template images:** put recaptured images in `assets/templates.local/`
+  under the same filenames. See
+  [assets/templates/README.md](assets/templates/README.md) for what each
+  one shows.
 
-### Simulated input in the game
+### 3. Tracker secret
 
-Two things have to be true for simulated clicks/keys to register in the
-game client (confirmed in both MapleStory and Terraria):
+Posting to Tracker needs its shared secret. Create a `.env` file in the
+repo root (gitignored — never commit it):
 
-- **Every click/key is held, not tapped.** Games poll input state once per
-  frame; PyAutoGUI's `click()`/`press()` send down and up back to back, so
-  the whole press falls between two polls and is never seen (mouse
-  *movement* still registers, being continuous — which is what made this
-  look like the game was filtering input). `ScreenActions` holds each
-  press for `hold_seconds` (default 50 ms) instead.
-- **The collector runs elevated** (MapleStory only). The game runs elevated
-  via the launch task, and Windows silently drops input sent to an
-  elevated window from a non-elevated process. `session.py` prints a
-  warning at startup if it isn't elevated.
+```
+MESO_TRACKER_RECORD_PRICE_SECRET=your-secret-here
+```
 
-Every click also first checks that the game window (the one the routine's
-`focus_window` step found) still has focus, and brings it back if not — so
-switching windows mid-run doesn't send clicks into another app. If the
-game can't be brought back, the run stops with an error instead of
-clicking.
+`MESO_TRACKER_API_URL` can be set the same way to post somewhere other than
+the deployed Tracker.
 
-### Why a Scheduled Task, not a direct launch/close?
+### 4. Hourly schedule (optional)
 
-Several things ruled out the simpler options, for both launching and
-closing:
-- Launching the game's exe directly (even elevated, even with the
-  `__COMPAT_LAYER=RunAsInvoker` environment variable set) still triggered a
-  UAC prompt with no way found to suppress it — the launcher requests
-  elevation for it explicitly, which overrides both approaches.
+From an **Administrator** PowerShell:
 
-A Scheduled Task configured with `RunLevel: Highest` sidesteps all of
-this by never asking the game to accept simulated input as if it were
-real: the **launch** task points at the launcher exe with the same "jump
-straight to this game" argument a desktop shortcut uses (e.g.
-`nxl://launch/10100` for MapleStory) — functionally identical to
-right-clicking the desktop shortcut and choosing "Run as administrator,"
-just without the interactive prompt. The **close** tasks just run
-`taskkill` directly against a process, which is normal OS process
-management, not simulated input anything has to interpret at all.
+```powershell
+$start = (Get-Date).Date.AddHours((Get-Date).Hour + 1)   # next full hour
+$trigger = New-ScheduledTaskTrigger -Once -At $start -RepetitionInterval (New-TimeSpan -Hours 1)
+Set-ScheduledTask -TaskName "MesoMarketCollector_Session" -Trigger $trigger
+```
 
-There are two close tasks, not one — closing the *launcher* needed the
-same treatment as the game, which was initially surprising since the
-launcher's own UI (e.g. its Play button) responds fine to simulated
-clicks. The reason: the launcher is a multi-process
-Electron-style app, and while its main window accepts clicks normally,
-some of its background/helper processes run elevated (inherited from
-being started by our elevated launch task) while others don't — a plain
-`taskkill`/`Stop-Process` only ever gets the non-elevated ones, silently
-leaving the rest running. So both "close" steps are process-kill tasks.
+A scheduled run:
 
-## Run the full session (launch game, log in, record both tabs, close)
+- takes over the screen for a few minutes — the game must stay the front
+  window;
+- closes MapleStory and the Nexon launcher at the start and end, including
+  a game you're playing;
+- needs you logged in with the screen unlocked;
+- doesn't start on battery power, and doesn't make up a missed hour.
 
-From any shell, via the session task (Configure step 7):
+To go back to manual runs:
+
+```powershell
+Set-ScheduledTask -TaskName "MesoMarketCollector_Session" -Trigger (New-ScheduledTaskTrigger -Once -At (Get-Date))
+```
+
+### 5. Running with the laptop lid closed (optional)
+
+With the lid closed there's no display to capture, so add a virtual one:
+
+1. `winget install --id VirtualDrivers.Virtual-Display-Driver -e`, then run
+   **VDD Control** as administrator and click **Install Driver**.
+2. In Settings → System → Display, set the displays to **Extend**, keep the
+   laptop screen as the main display, and give the virtual display the same
+   resolution and scale as the laptop screen.
+3. In Control Panel → Power Options, set the lid close action to
+   **Do nothing** when plugged in.
+
+Uninstall the driver before a major graphics driver update and reinstall it
+after.
+
+## Run
+
+Start a run from any shell:
 
 ```powershell
 schtasks /run /tn "MesoMarketCollector_Session"
 ```
 
-It runs start to finish unattended, appending its output to
-`data/session.log`. If a click ever misses, the routine logs which screen
-it's waiting for, and you have a few minutes to get there by hand for it
-to continue.
+It runs unattended and appends its output to `data/session.log`.
 
-To watch the output live instead (e.g. while debugging), run it directly
-from an **Administrator** PowerShell (see "Simulated input in the game"
-above) with the Windows Python venv:
+To watch the output live, or to mark a run as manual, run it directly from
+an **Administrator** PowerShell:
 
 ```powershell
-python -m meso_market_collector.session --task-name "MesoMarketCollector_MapleStoryViaLauncher"
+python -m meso_market_collector.session --task-name "MesoMarketCollector_MapleStoryViaLauncher" --notes manual
 ```
 
-The launch task name is passed in each run rather than stored in config. Recorded
-prices are read via OCR
-([`meso_market_collector/parser.py`](meso_market_collector/parser.py),
-using [pytesseract](https://github.com/madmaze/pytesseract)) and appended
-to `data/price_history.csv` as **one row per run**, with the same columns
-(and date format) as the hand-maintained price sheet it feeds —
-`PRICE_ROW_FIELDNAMES` in
-[`storage.py`](meso_market_collector/storage.py) is the source of truth:
-`Date, Average, Buy Buyout 100M, Buy Buyout 1B, Buy Buyout 10B,
-Sell Buyout 100M, Sell Buyout 1B, Sell Buyout 10B, Notes` (`Notes` is
-left blank for you to fill in by hand, unless the run flags a suspect
-price — see below). `Average` comes from the
-`meso_average` box, which reads identically regardless of which tab is
-showing — confirmed empirically, not just assumed — so it's captured once
-per row rather than separately for each tab. If OCR can't cleanly read a
-box (blank, or anything that isn't purely digits), that cell is left
-blank. Every box's raw crop is saved to `data/snapshots/` each run, named
-with what OCR read (e.g. `Average_406_<timestamp>.png`, or
-`..._unreadable_...`) — a misread digit (3 vs 6, say) still parses as a
-valid number, so comparing a crop to its filename is the only way to
-catch one for certain. The obvious cases are flagged automatically before
-saving (`parser.find_implausible_prices`): a price under half or over
-double the row's median (a dropped or extra digit, e.g. 427 read as 42),
-or more than 10% off the other tiers on its own Buy/Sell side. A flagged
-price is still recorded as read — the run isn't stopped over it — but the
-row's `Notes` says which one to check (e.g. `Possible OCR misread: Buy
-Buyout 100M=42`), in the CSV and on Tracker, and a warning names it in
-the log. The same row is then POSTed to the sibling
-[Meso-Market-Tracker](../Meso-Market-Tracker) project's GraphQL API
-(`post_price_row` step, right after `save_price_row`, in
-`config/routine.json`) — see
-[`meso_market_collector/api_client.py`](meso_market_collector/api_client.py)
-for the request built. It's sent to Tracker's deployed API Gateway endpoint
-(`config.DEFAULT_TRACKER_API_URL`) by default — set `MESO_TRACKER_API_URL`
-to override it (e.g. to point at a local `flask run` dev server instead).
-The row's collection time is sent with it as `datetime` (UTC), so a row
-posted late is still recorded at the time it was read; if Tracker's
-`PriceInput` doesn't have that field (yet), the rejected post is repeated
-once without it and Tracker stamps the row with its own insert time.
-Tracker's `recordPrice` requires a shared secret, sent as the
-`x-record-price-secret` header: put it in a `.env` file in the repo root
-(gitignored — never commit it), on every machine that collects:
-```
-MESO_TRACKER_RECORD_PRICE_SECRET=your-secret-here
-```
-A real environment variable of the same name overrides the file, but the
-scheduled session task may not see a variable set after the last logon, so
-prefer the file there. `MESO_TRACKER_API_URL` can be set in `.env` the same
-way. With no secret set, the row is posted without the header and a
-warning is logged.
-Like any other step, a failed request (via `requests`' `raise_for_status()`)
-stops
-the routine there, skipping the cleanup steps after it — same as an OCR
-`wait_for_image` timeout already could; the CSV row from `save_price_row`
-is unaffected either way since it happens first. Snapshots older than 7
-days get cleared
-automatically each run (`clear_old_snapshots` step in
-`config/routine.json`, by the timestamp embedded in each filename — not
-file mtime, which a copy/backup could reset); adjust `max_age_days` there
-if you want to keep them longer.
+`--notes` is optional; its text is saved in the row's Notes. Scheduled runs
+leave Notes blank.
 
-**OCR needs the actual Tesseract engine, not just the `pytesseract` pip
-package** (`pytesseract` is a thin wrapper — pip alone doesn't install the
-underlying OCR binary). On Windows: `winget install --id tesseract-ocr.tesseract -e`
-(or install manually from
-[UB-Mannheim's Tesseract builds](https://github.com/UB-Mannheim/tesseract/wiki)).
-`parser.py` auto-detects the default install location
-(`C:\Program Files\Tesseract-OCR\tesseract.exe`) if it's not on PATH yet
-(common right after installing, until you open a fresh shell), so no
-manual configuration is usually needed. If you installed somewhere else,
-set it explicitly near the top of `parser.py`:
-```python
-pytesseract.pytesseract.tesseract_cmd = r"C:\path\to\tesseract.exe"
+## Output
+
+- **`data/price_history.csv`** — one row per run, with the same column
+  names as Tracker: `datetime` (collection time, UTC), `average`,
+  `buy100M`, `buy1B`, `buy10B`, `sell100M`, `sell1B`, `sell10B`, `notes`.
+- **Tracker** — the same row.
+- **`data/snapshots/`** — the image of every price box, named with the
+  value OCR read (e.g. `average_406_<timestamp>.png`), for checking a
+  reading. Deleted after 7 days (`max_age_days` in `config/routine.json`).
+  The full-screen `timeout_…png` screenshots saved when a run fails are
+  kept for 90 days (`failure_max_age_days`), so a rare failure, such as on
+  a patch day, can still be examined later.
+- **`data/session.log`** — the log of every run started through the
+  session task.
+
+A price that doesn't fit the rest of its row (e.g. 427 read as 42) is still
+recorded, with `Possible OCR misread: …` in `notes`.
+
+## Troubleshooting
+
+- **A run failed.** The error is at the end of `data/session.log`. If a
+  screen check timed out, `data/snapshots/timeout_<template>_<timestamp>.png`
+  shows the screen at that moment. The game stays open until the next run
+  closes it; that run first logs what was still open and saves
+  `timeout_leftover_<timestamp>.png`.
+- **A screen check keeps timing out.** The template image no longer matches
+  (display change or game update): recapture it into
+  `assets/templates.local/`.
+- **Prices are misread.** Open the box's snapshot; if digits touch an edge
+  or part of another box is included, adjust `config/regions.local.json`.
+- **Nothing opens when the launch task runs.**
+  `Get-ScheduledTaskInfo -TaskName "MesoMarketCollector_MapleStoryViaLauncher"`
+  showing `LastTaskResult` `2147942402` means the task's program path is
+  wrong; re-register it from step 1.
+- **Clicks don't register.** The collector isn't running elevated (the log
+  says so at startup): start it through the session task or an
+  Administrator PowerShell.
+- **Tracker rejects the row.** Check the secret in `.env`. If Tracker
+  answers with an id of `None` and returns no prices, its database is
+  paused.
+
+## Development
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest
 ```
 
-## Run a bare capture pass (game already running, no launch/navigation)
-
-```bash
-python -m meso_market_collector.collect
-```
-
-Captures every region in `config/regions.json` once and appends a flat,
-one-row-per-box reading to `data/region_readings.csv` (a different, simpler
-format from `price_history.csv` above — this entrypoint is generic across
-arbitrary regions, with no sell/buy-tab concept to build a combined row
-from) — useful for a cron job when the game/market screen is already open:
-
-```cron
-* * * * * cd /path/to/Meso-Market-Collector && .venv/bin/python -m meso_market_collector.collect >> data/collector.log 2>&1
-```
-
-## Test
-
-```bash
-pytest
-```
-
-The launch/login/navigate routine (`meso_market_collector/routine.py`) is
-unit-tested with a fake screen backend — no display needed. The real screen
-I/O (`screen_actions.py`, `capture.py`) needs an actual display/game and
-isn't covered by automated tests.
+The steps of a run are listed in `config/routine.json`. See
+[CLAUDE.md](CLAUDE.md) for how changes are tested.

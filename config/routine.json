@@ -1,4 +1,5 @@
 [
+  {"action": "record_leftovers", "processes": ["MapleStory.exe", "nexon_client.exe"]},
   {"action": "run_task", "task_name": "MesoMarketCollector_KillMapleStory"},
   {"action": "run_task", "task_name": "MesoMarketCollector_KillNexonLauncher"},
   {"action": "wait_for_process_exit", "processes": ["MapleStory.exe", "nexon_client.exe", "nexon_runtime.exe"]},
@@ -12,13 +13,13 @@
   {"action": "click_image", "template": "meso_market_icon.png"},
   {"action": "click_image_if_present", "template": "sell_mesos_tab.png", "confidence": 0.95, "seconds": 10},
   {"action": "wait_for_image", "template": "sell_mesos_active.png", "message": "Waiting for the Sell Mesos tab - if a click missed, get there by hand."},
-  {"action": "record_prices", "regions": {"meso_average": "Average", "meso_100m": "Sell Buyout 100M", "meso_1b": "Sell Buyout 1B", "meso_10b": "Sell Buyout 10B"}},
+  {"action": "record_prices", "regions": {"meso_average": "average", "meso_100m": "sell100M", "meso_1b": "sell1B", "meso_10b": "sell10B"}},
   {"action": "click_image", "template": "buy_mesos_tab.png", "confidence": 0.95},
   {"action": "wait_for_image", "template": "buy_mesos_active.png", "message": "Waiting for the Buy Mesos tab - if the click missed, click it by hand."},
-  {"action": "record_prices", "regions": {"meso_100m": "Buy Buyout 100M", "meso_1b": "Buy Buyout 1B", "meso_10b": "Buy Buyout 10B"}},
+  {"action": "record_prices", "regions": {"meso_100m": "buy100M", "meso_1b": "buy1B", "meso_10b": "buy10B"}},
   {"action": "save_price_row"},
   {"action": "post_price_row"},
-  {"action": "clear_old_snapshots", "max_age_days": 7},
+  {"action": "clear_old_snapshots", "max_age_days": 7, "failure_max_age_days": 90},
   {"action": "run_task", "task_name": "MesoMarketCollector_KillMapleStory"},
   {"action": "run_task", "task_name": "MesoMarketCollector_KillNexonLauncher"}
 ]

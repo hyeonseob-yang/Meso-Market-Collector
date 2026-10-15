@@ -53,6 +53,9 @@ class FakeActions:
     def wait_for_process_exit(self, processes):
         self.calls.append(("wait_for_process_exit", tuple(processes)))
 
+    def record_leftovers(self, processes):
+        self.calls.append(("record_leftovers", tuple(processes)))
+
     def wait_for_user(self, message):
         self.calls.append(("wait_for_user", message))
 
@@ -98,7 +101,7 @@ def test_load_steps_parses_json(tmp_path):
                 {"action": "focus_window", "window_title": "MapleStory"},
                 {"action": "wait_for_image", "template": "login_button.png", "confidence": 0.986},
                 {"action": "wait_for_user", "message": "Log in, then press Enter"},
-                {"action": "record_prices", "regions": {"meso_1": "Average", "meso_2": "Sell Buyout 100M"}},
+                {"action": "record_prices", "regions": {"meso_1": "average", "meso_2": "sell100M"}},
                 {"action": "press_key", "key": "esc"},
                 {"action": "hotkey", "keys": ["alt", "f4"]},
                 {"action": "save_price_row"},
@@ -116,7 +119,7 @@ def test_load_steps_parses_json(tmp_path):
         Step(action="focus_window", window_title="MapleStory"),
         Step(action="wait_for_image", template="login_button.png", confidence=0.986),
         Step(action="wait_for_user", message="Log in, then press Enter"),
-        Step(action="record_prices", regions={"meso_1": "Average", "meso_2": "Sell Buyout 100M"}),
+        Step(action="record_prices", regions={"meso_1": "average", "meso_2": "sell100M"}),
         Step(action="press_key", key="esc"),
         Step(action="hotkey", keys=["alt", "f4"]),
         Step(action="save_price_row"),
@@ -142,10 +145,10 @@ def test_run_routine_dispatches_each_step_in_order():
         Step(
             action="record_prices",
             regions={
-                "meso_1": "Average",
-                "meso_2": "Sell Buyout 100M",
-                "meso_3": "Sell Buyout 1B",
-                "meso_4": "Sell Buyout 10B",
+                "meso_1": "average",
+                "meso_2": "sell100M",
+                "meso_3": "sell1B",
+                "meso_4": "sell10B",
             },
         ),
         Step(
@@ -156,9 +159,9 @@ def test_run_routine_dispatches_each_step_in_order():
         Step(
             action="record_prices",
             regions={
-                "meso_2": "Buy Buyout 100M",
-                "meso_3": "Buy Buyout 1B",
-                "meso_4": "Buy Buyout 10B",
+                "meso_2": "buy100M",
+                "meso_3": "buy1B",
+                "meso_4": "buy10B",
             },
         ),
         Step(action="save_price_row"),
@@ -178,19 +181,19 @@ def test_run_routine_dispatches_each_step_in_order():
         (
             "record_prices",
             {
-                "meso_1": "Average",
-                "meso_2": "Sell Buyout 100M",
-                "meso_3": "Sell Buyout 1B",
-                "meso_4": "Sell Buyout 10B",
+                "meso_1": "average",
+                "meso_2": "sell100M",
+                "meso_3": "sell1B",
+                "meso_4": "sell10B",
             },
         ),
         ("wait_for_image", "buy_mesos_active.png", "Click the Buy Mesos tab", None),
         (
             "record_prices",
             {
-                "meso_2": "Buy Buyout 100M",
-                "meso_3": "Buy Buyout 1B",
-                "meso_4": "Buy Buyout 10B",
+                "meso_2": "buy100M",
+                "meso_3": "buy1B",
+                "meso_4": "buy10B",
             },
         ),
         ("save_price_row",),
@@ -446,3 +449,60 @@ def test_run_routine_rejects_unknown_action():
 
     with pytest.raises(ValueError, match="Unknown action"):
         run_routine([Step(action="teleport")], task_name="x", actions=actions)
+
+
+def test_run_routine_passes_failure_max_age_days_to_clear_old_snapshots():
+    calls = []
+
+    class Actions(FakeActions):
+        def clear_old_snapshots(self, max_age_days, **limits):
+            calls.append((max_age_days, limits))
+
+    run_routine(
+        [Step(action="clear_old_snapshots", max_age_days=7, failure_max_age_days=90)],
+        task_name="x",
+        actions=Actions(),
+    )
+
+    assert calls == [(7, {"failure_max_age_days": 90})]
+
+
+def test_real_routine_keeps_failure_screenshots_longer_than_ordinary_snapshots():
+    from pathlib import Path
+
+    steps = load_steps(Path(__file__).resolve().parent.parent / "config" / "routine.json")
+    (cleanup,) = [s for s in steps if s.action == "clear_old_snapshots"]
+
+    assert cleanup.failure_max_age_days is not None
+    assert cleanup.failure_max_age_days > cleanup.max_age_days
+
+
+def test_run_routine_dispatches_record_leftovers():
+    actions = FakeActions()
+
+    run_routine(
+        [Step(action="record_leftovers", processes=["MapleStory.exe", "nexon_client.exe"])],
+        task_name="x",
+        actions=actions,
+    )
+
+    assert actions.calls == [("record_leftovers", ("MapleStory.exe", "nexon_client.exe"))]
+
+
+def test_real_routine_records_leftovers_before_closing_anything():
+    from pathlib import Path
+
+    steps = load_steps(Path(__file__).resolve().parent.parent / "config" / "routine.json")
+
+    assert steps[0] == Step(action="record_leftovers", processes=["MapleStory.exe", "nexon_client.exe"])
+
+
+def test_real_routine_records_every_price_field_once():
+    from pathlib import Path
+
+    from meso_market_collector.storage import PRICE_FIELDS
+
+    steps = load_steps(Path(__file__).resolve().parent.parent / "config" / "routine.json")
+    recorded = [field for s in steps if s.action == "record_prices" for field in s.regions.values()]
+
+    assert sorted(recorded) == sorted(PRICE_FIELDS)

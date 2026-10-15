@@ -8,8 +8,7 @@ from .config import Region
 try:
     import pyautogui
 except Exception as exc:  # pragma: no cover - environment dependent
-    # pyautogui fails at import time (KeyError/Xlib errors, etc.) on systems
-    # with no display, e.g. a headless WSL shell. Surface a clearer error.
+    # pyautogui fails at import time without a display; surface a clearer error.
     raise RuntimeError(
         "pyautogui could not find a display. Run the collector from a "
         "session that has GUI/screen access (e.g. the machine actually "
