@@ -10,7 +10,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from dotenv import dotenv_values
+from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 REGIONS_FILE = PROJECT_ROOT / "config" / "regions.json"
@@ -23,31 +23,20 @@ LOCAL_TEMPLATES_DIR = PROJECT_ROOT / "assets" / "templates.local"
 DATA_DIR = PROJECT_ROOT / "data"
 CSV_PATH = DATA_DIR / "price_history.csv"
 
+ENV_FILE = PROJECT_ROOT / ".env"  # gitignored - never commit it
+load_dotenv(ENV_FILE)  # doesn't override variables already set
+
 # Meso-Market-Tracker's deployed endpoint (its backend_url Terraform
 # output). Override with MESO_TRACKER_API_URL, e.g. for a local dev server.
 DEFAULT_TRACKER_API_URL = "https://xa6elv0g44.execute-api.us-east-1.amazonaws.com/price"
 
 
 def get_tracker_api_url() -> str:
-    """MESO_TRACKER_API_URL (environment or .env) if set, else the default."""
-    return _env("MESO_TRACKER_API_URL") or DEFAULT_TRACKER_API_URL
-
-
-# KEY=VALUE settings, including secrets. Gitignored - never commit it.
-ENV_FILE = PROJECT_ROOT / ".env"
-
-
-def _env(name: str) -> str | None:
-    """A setting from the environment, else from .env, else None. The
-    file matters for the scheduled task, which may not see a variable set
-    after the last logon. Read on each call, so later changes take effect."""
-    return os.environ.get(name) or dotenv_values(ENV_FILE).get(name) or None
+    return os.environ.get("MESO_TRACKER_API_URL") or DEFAULT_TRACKER_API_URL
 
 
 def get_record_price_secret() -> str | None:
-    """The shared secret Tracker's recordPrice mutation requires, from
-    MESO_TRACKER_RECORD_PRICE_SECRET - or None if it isn't set."""
-    return _env("MESO_TRACKER_RECORD_PRICE_SECRET")
+    return os.environ.get("MESO_TRACKER_RECORD_PRICE_SECRET") or None
 
 
 @dataclass(frozen=True)

@@ -143,70 +143,34 @@ def test_load_regions_mixes_boxes_and_columns(tmp_path):
 
 
 @pytest.fixture
-def env_file(tmp_path, monkeypatch):
-    """Points config at an empty temp .env (never this machine's real one)
-    and clears the real environment variables it would read."""
-    path = tmp_path / ".env"
-    monkeypatch.setattr(config, "ENV_FILE", path)
+def clean_env(monkeypatch):
+    """Clears the settings the getters read, including any loaded from this
+    machine's real .env."""
     monkeypatch.delenv("MESO_TRACKER_API_URL", raising=False)
     monkeypatch.delenv("MESO_TRACKER_RECORD_PRICE_SECRET", raising=False)
-    return path
 
 
-def test_get_tracker_api_url_defaults_to_deployed_endpoint(env_file):
+def test_get_tracker_api_url_defaults_to_deployed_endpoint(clean_env):
     assert get_tracker_api_url() == DEFAULT_TRACKER_API_URL
 
 
-def test_get_tracker_api_url_reads_env_override(env_file, monkeypatch):
+def test_get_tracker_api_url_reads_the_environment(clean_env, monkeypatch):
     monkeypatch.setenv("MESO_TRACKER_API_URL", "http://localhost:5000/price")
 
     assert get_tracker_api_url() == "http://localhost:5000/price"
 
 
-def test_get_tracker_api_url_reads_env_file(env_file):
-    env_file.write_text("MESO_TRACKER_API_URL=http://localhost:5000/price\n")
-
-    assert get_tracker_api_url() == "http://localhost:5000/price"
-
-
-def test_env_file_ignores_a_comment_after_a_value(env_file):
-    env_file.write_text("MESO_TRACKER_API_URL=http://localhost:5000/price # dev server\n")
-
-    assert get_tracker_api_url() == "http://localhost:5000/price"
-
-
-def test_get_record_price_secret_is_none_when_unconfigured(env_file):
+def test_get_record_price_secret_is_none_when_unconfigured(clean_env):
     assert config.get_record_price_secret() is None
 
 
-def test_get_record_price_secret_reads_env_file(env_file):
-    env_file.write_text("# Tracker\n\nMESO_TRACKER_RECORD_PRICE_SECRET=from-file\n")
-
-    assert config.get_record_price_secret() == "from-file"
-
-
-@pytest.mark.parametrize(
-    "line",
-    [
-        'MESO_TRACKER_RECORD_PRICE_SECRET="a=b c"',
-        "MESO_TRACKER_RECORD_PRICE_SECRET='a=b c'",
-        "export MESO_TRACKER_RECORD_PRICE_SECRET = a=b c  ",
-    ],
-)
-def test_get_record_price_secret_handles_quotes_export_and_equals_in_value(env_file, line):
-    env_file.write_text(line + "\n")
-
-    assert config.get_record_price_secret() == "a=b c"
-
-
-def test_get_record_price_secret_real_environment_wins_over_env_file(env_file, monkeypatch):
-    env_file.write_text("MESO_TRACKER_RECORD_PRICE_SECRET=from-file\n")
+def test_get_record_price_secret_reads_the_environment(clean_env, monkeypatch):
     monkeypatch.setenv("MESO_TRACKER_RECORD_PRICE_SECRET", "from-env")
 
     assert config.get_record_price_secret() == "from-env"
 
 
-def test_get_record_price_secret_treats_empty_value_as_unconfigured(env_file):
-    env_file.write_text("MESO_TRACKER_RECORD_PRICE_SECRET=\n")
+def test_get_record_price_secret_treats_empty_value_as_unconfigured(clean_env, monkeypatch):
+    monkeypatch.setenv("MESO_TRACKER_RECORD_PRICE_SECRET", "")
 
     assert config.get_record_price_secret() is None
