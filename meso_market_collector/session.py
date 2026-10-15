@@ -2,9 +2,8 @@
 
     python -m meso_market_collector.session --task-name "MesoMarketCollector_MapleStoryViaLauncher"
 
-The task name refers to a pre-configured Windows Scheduled Task (RunLevel:
-Highest) that launches the game - see README.md for why a raw exe path
-isn't used here.
+The task name refers to the Scheduled Task that launches the game elevated,
+without a UAC prompt.
 """
 from __future__ import annotations
 

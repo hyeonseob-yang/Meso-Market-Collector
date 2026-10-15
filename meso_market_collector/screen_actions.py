@@ -71,7 +71,7 @@ class ScreenActions:
 
     def launch(self, task_name: str) -> None:
         # Via an elevated Scheduled Task, not the exe directly, to avoid a
-        # UAC prompt - see README, "Why a Scheduled Task".
+        # UAC prompt.
         self._run_scheduled_task(task_name)
 
     def run_task(self, task_name: str) -> None:
