@@ -94,6 +94,7 @@ def clear_old_snapshots(
         now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=max_age_days)
     failure_cutoff = cutoff if failure_max_age_days is None else now - timedelta(days=failure_max_age_days)
+
     deleted: list[Path] = []
     if not snapshot_dir.exists():
         return deleted

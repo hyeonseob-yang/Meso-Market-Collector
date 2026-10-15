@@ -53,11 +53,13 @@ def build_price_payload(row: dict[str, int | None], collected_at: datetime | Non
         )
         print(message, file=sys.stderr, flush=True)
         raise ValueError(message)
+
     price = {"notes": row.get("Notes") or ""}
     if collected_at is not None:
         if collected_at.tzinfo is None:
             raise ValueError("collected_at must be timezone-aware")
         price["datetime"] = collected_at.astimezone(timezone.utc).isoformat()
+
     for column, field in _FIELD_MAP.items():
         price[field] = int(row[column])
     return {"query": RECORD_PRICE_MUTATION, "variables": {"price": price}}

@@ -45,7 +45,11 @@ and check the end of `data/session.log` and the new files in
 `data/snapshots/`. Scheduled collection runs on a separate machine, so a run
 on a development machine is a manual test.
 
-## Comments
+## Code style
+
+Inside a longer function, separate its distinct steps (e.g. validate, then
+build, then return) with a single blank line. Use this sparingly; short
+functions don't need it.
 
 Keep comments and docstrings minimal: at most a line or two giving a reason
 the code doesn't show, and none where the code is self-explanatory. Put the

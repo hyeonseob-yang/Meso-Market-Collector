@@ -82,6 +82,7 @@ def find_implausible_prices(row: dict[str, int | None]) -> list[str]:
         return []
     overall = median(present.values())
     bad = [c for c, v in present.items() if not overall / 2 <= v <= overall * 2]
+
     for side in (_BUY_TIERS, _SELL_TIERS):
         tiers = {c: present[c] for c in side if c in present and c not in bad}
         if len(tiers) < 2:

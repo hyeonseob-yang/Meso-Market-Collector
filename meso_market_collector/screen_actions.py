@@ -198,6 +198,7 @@ class ScreenActions:
         self._record_click(template, 1)
         self._click_box(box)
         clicks = 1
+
         for _ in range(attempts - 1):
             if self._poll_for(until, retry_seconds):
                 print(f"{until!r} appeared after click {clicks}", flush=True)
@@ -211,6 +212,7 @@ class ScreenActions:
                 clicks += 1
                 self._record_click(template, clicks)
                 self._click_box(box)
+
         self.wait_for_image(until, message)
         print(f"{until!r} appeared after click {clicks}", flush=True)
 
@@ -252,6 +254,7 @@ class ScreenActions:
             misread = "Possible OCR misread: " + ", ".join(f"{c}={self._readings[c]}" for c in suspect)
             print(f"WARNING: {misread} - doesn't fit the rest of the row; noted on the row", flush=True)
             notes = "; ".join(filter(None, [notes, misread]))
+
         append_price_row(self._readings, notes=notes)
         self._last_saved_row = {**self._readings, "Notes": notes}
         self._last_saved_at = datetime.now(timezone.utc)
