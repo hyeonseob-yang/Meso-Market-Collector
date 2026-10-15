@@ -17,24 +17,12 @@ COMPLETE_ROW = {
     "sell1B": 311,
     "sell10B": 307,
 }
-COLLECTED_AT = datetime(2026, 10, 1, 6, 19, 51, tzinfo=timezone.utc)
-UNKNOWN_DATETIME_FIELD = {
-    "errors": [{"message": "Field 'datetime' is not defined by type 'PriceInput'."}],
-    "data": None,
-}
 
 
 @pytest.fixture(autouse=True)
 def no_secret(monkeypatch):
     # Never read this machine's real .env file or environment variable.
     monkeypatch.setattr("meso_market_collector.api_client.get_record_price_secret", lambda: None)
-
-
-def _fake_response(body, raise_for_status_error=None):
-    response = MagicMock()
-    response.json.return_value = body
-    response.raise_for_status.side_effect = raise_for_status_error
-    return response
 
 
 def test_build_price_payload_sends_the_row_as_price_input():
@@ -126,6 +114,13 @@ def test_build_price_payload_defaults_notes_to_empty_string():
     assert payload["variables"]["price"]["notes"] == ""
 
 
+def _fake_response(body, raise_for_status_error=None):
+    response = MagicMock()
+    response.json.return_value = body
+    response.raise_for_status.side_effect = raise_for_status_error
+    return response
+
+
 @patch("meso_market_collector.api_client.requests.post")
 def test_post_price_row_sends_secret_header_when_configured(mock_post, monkeypatch, capsys):
     monkeypatch.setattr("meso_market_collector.api_client.get_record_price_secret", lambda: "s3cret")
@@ -163,6 +158,13 @@ def test_post_price_row_succeeds_when_recordPrice_returns_an_id(mock_post, capsy
     # printed (not just silently discarded) so the id is available for
     # cross-referencing against Tracker/Supabase later.
     assert "42" in capsys.readouterr().out
+
+
+COLLECTED_AT = datetime(2026, 10, 1, 6, 19, 51, tzinfo=timezone.utc)
+UNKNOWN_DATETIME_FIELD = {
+    "errors": [{"message": "Field 'datetime' is not defined by type 'PriceInput'."}],
+    "data": None,
+}
 
 
 @patch("meso_market_collector.api_client.requests.post")

@@ -6,21 +6,6 @@ from meso_market_collector import config
 from meso_market_collector.config import DEFAULT_TRACKER_API_URL, Region, get_tracker_api_url, load_regions
 
 
-def _write_box(path, left):
-    path.write_text(json.dumps({"meso_price": {"left": left, "top": 20, "width": 150, "height": 30}}))
-
-
-@pytest.fixture
-def env_file(tmp_path, monkeypatch):
-    """Points config at an empty temp .env (never this machine's real one)
-    and clears the real environment variables it would read."""
-    path = tmp_path / ".env"
-    monkeypatch.setattr(config, "ENV_FILE", path)
-    monkeypatch.delenv("MESO_TRACKER_API_URL", raising=False)
-    monkeypatch.delenv("MESO_TRACKER_RECORD_PRICE_SECRET", raising=False)
-    return path
-
-
 def test_get_template_path_prefers_local_copy_per_file(tmp_path, monkeypatch):
     shared, local = tmp_path / "templates", tmp_path / "templates.local"
     shared.mkdir()
@@ -40,6 +25,10 @@ def test_get_template_path_falls_back_without_local_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "LOCAL_TEMPLATES_DIR", tmp_path / "missing")
 
     assert config.get_template_path("login_button.png") == tmp_path / "templates" / "login_button.png"
+
+
+def _write_box(path, left):
+    path.write_text(json.dumps({"meso_price": {"left": left, "top": 20, "width": 150, "height": 30}}))
 
 
 def test_load_regions_defaults_to_committed_file_without_local_override(tmp_path, monkeypatch):
@@ -151,6 +140,17 @@ def test_load_regions_mixes_boxes_and_columns(tmp_path):
         Region(name="meso_2", left=10, top=140, width=150, height=30),
         Region(name="other_price", left=300, top=50, width=80, height=20),
     ]
+
+
+@pytest.fixture
+def env_file(tmp_path, monkeypatch):
+    """Points config at an empty temp .env (never this machine's real one)
+    and clears the real environment variables it would read."""
+    path = tmp_path / ".env"
+    monkeypatch.setattr(config, "ENV_FILE", path)
+    monkeypatch.delenv("MESO_TRACKER_API_URL", raising=False)
+    monkeypatch.delenv("MESO_TRACKER_RECORD_PRICE_SECRET", raising=False)
+    return path
 
 
 def test_get_tracker_api_url_defaults_to_deployed_endpoint(env_file):

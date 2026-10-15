@@ -40,8 +40,10 @@ Run the tests with the project venv:
   that *can* be written first, then verify the rest with a real session
   run, and say which parts were verified live rather than by tests.
 
-In a test file, put everything the tests share — constants, fake classes,
-helper functions, then fixtures — at the top, before the first test.
+In a test file, put what the whole file uses (automatic fixtures, shared
+constants, fakes and helpers) at the top. Put what only one group of tests
+uses directly above that group. Never define something below a test that
+uses it.
 
 To verify live, start a run with `schtasks /run /tn "MesoMarketCollector_Session"`
 and check the end of `data/session.log` and the new files in

@@ -35,6 +35,99 @@ class FakeWindow:
         self.activated += 1
 
 
+def _fake_gw(windows_by_poll, active=None):
+    """getWindowsWithTitle returns successive entries of `windows_by_poll`
+    (repeating the last one once exhausted)."""
+    polls = iter(windows_by_poll)
+    last = []
+
+    def get_windows_with_title(title):
+        nonlocal last
+        last = next(polls, last)
+        return last
+
+    return SimpleNamespace(
+        getWindowsWithTitle=get_windows_with_title,
+        getActiveWindow=lambda: active,
+        PyGetWindowException=Exception,
+    )
+
+
+@pytest.fixture
+def clock(monkeypatch):
+    fake = FakeClock()
+    monkeypatch.setattr(screen_actions, "time", fake)
+    return fake
+
+
+@pytest.fixture
+def screenshots(monkeypatch, tmp_path):
+    """Fakes the screen grab and records each snapshot saved as (name, image)."""
+    saved = []
+
+    def save_snapshot(item, image):
+        saved.append((item, image))
+        return tmp_path / f"{item}.png"
+
+    monkeypatch.setattr(screen_actions, "save_snapshot", save_snapshot)
+    monkeypatch.setattr(screen_actions, "pyautogui", SimpleNamespace(screenshot=lambda: "the screen"))
+    return saved
+
+
+def test_focus_window_waits_for_window_to_appear(monkeypatch, clock):
+    window = FakeWindow()
+    # Not there for the first two polls (game still loading), then appears.
+    monkeypatch.setattr(screen_actions, "gw", _fake_gw([[], [], [window]], active=window))
+
+    screen_actions.ScreenActions(poll_interval=0.5, timeout=10).focus_window("MapleStory")
+
+    assert window.activated == 1
+    assert clock.now >= 1.0  # waited through the two empty polls
+
+
+def test_focus_window_times_out_if_window_never_appears(monkeypatch, clock, screenshots):
+    monkeypatch.setattr(screen_actions, "gw", _fake_gw([[]]))
+
+    with pytest.raises(TimeoutError, match="MapleStory"):
+        screen_actions.ScreenActions(poll_interval=0.5, timeout=3).focus_window("MapleStory")
+
+    assert clock.now >= 3
+    assert screenshots == [("timeout_MapleStory", "the screen")]
+
+
+def _running(monkeypatch, *names):
+    monkeypatch.setattr(screen_actions.ScreenActions, "_is_running", lambda self, name: name in names)
+
+
+def test_record_leftovers_screenshots_what_a_previous_run_left_open(monkeypatch, screenshots, capsys):
+    _running(monkeypatch, "nexon_client.exe")
+
+    screen_actions.ScreenActions().record_leftovers(["MapleStory.exe", "nexon_client.exe"])
+
+    assert screenshots == [("timeout_leftover", "the screen")]
+    out = capsys.readouterr().out
+    assert "nexon_client.exe" in out
+    assert "MapleStory.exe" not in out
+
+
+def test_record_leftovers_names_every_process_still_running(monkeypatch, screenshots, capsys):
+    _running(monkeypatch, "MapleStory.exe", "nexon_client.exe")
+
+    screen_actions.ScreenActions().record_leftovers(["MapleStory.exe", "nexon_client.exe"])
+
+    out = capsys.readouterr().out
+    assert "MapleStory.exe" in out and "nexon_client.exe" in out
+
+
+def test_record_leftovers_does_nothing_when_nothing_is_running(monkeypatch, screenshots, capsys):
+    _running(monkeypatch)
+
+    screen_actions.ScreenActions().record_leftovers(["MapleStory.exe", "nexon_client.exe"])
+
+    assert screenshots == []
+    assert capsys.readouterr().out == ""
+
+
 class FocusableWindow(FakeWindow):
     """A window that actually takes focus when activated (unless `stuck`)."""
 
@@ -74,99 +167,6 @@ class ClickPyautogui:
     PAUSE = 0
 
 
-class FakePyautogui:
-    class ImageNotFoundException(Exception):
-        pass
-
-    def __init__(self, found=None):
-        self.located: list[str] = []
-        self.grayscale: list[bool] = []
-        self.found = found  # box to "find" for every template, or None
-        self.events: list[tuple] = []
-
-    def locateOnScreen(self, path, confidence, grayscale):
-        self.located.append(path)
-        self.grayscale.append(grayscale)
-        if self.found is None:
-            raise self.ImageNotFoundException
-        return self.found
-
-    def center(self, box):
-        return ("center", box)
-
-    def moveTo(self, point):
-        self.events.append(("moveTo", point))
-
-    def mouseDown(self, _pause=True):
-        self.events.append(("mouseDown",))
-
-    def mouseUp(self):
-        self.events.append(("mouseUp",))
-
-
-class SavedRows(list):
-    """(row, notes) per saved row, plus the collection time each was given."""
-
-    def __init__(self):
-        super().__init__()
-        self.times = []
-
-
-def _fake_gw(windows_by_poll, active=None):
-    """getWindowsWithTitle returns successive entries of `windows_by_poll`
-    (repeating the last one once exhausted)."""
-    polls = iter(windows_by_poll)
-    last = []
-
-    def get_windows_with_title(title):
-        nonlocal last
-        last = next(polls, last)
-        return last
-
-    return SimpleNamespace(
-        getWindowsWithTitle=get_windows_with_title,
-        getActiveWindow=lambda: active,
-        PyGetWindowException=Exception,
-    )
-
-
-def _running(monkeypatch, *names):
-    monkeypatch.setattr(screen_actions.ScreenActions, "_is_running", lambda self, name: name in names)
-
-
-def _readings(buy_100m):
-    return {
-        "average": 420,
-        "buy100M": buy_100m,
-        "buy1B": 427,
-        "buy10B": 427,
-        "sell100M": 418,
-        "sell1B": 418,
-        "sell10B": 418,
-    }
-
-
-@pytest.fixture
-def clock(monkeypatch):
-    fake = FakeClock()
-    monkeypatch.setattr(screen_actions, "time", fake)
-    return fake
-
-
-@pytest.fixture
-def screenshots(monkeypatch, tmp_path):
-    """Fakes the screen grab and records each snapshot saved as (name, image)."""
-    saved = []
-
-    def save_snapshot(item, image):
-        saved.append((item, image))
-        return tmp_path / f"{item}.png"
-
-    monkeypatch.setattr(screen_actions, "save_snapshot", save_snapshot)
-    monkeypatch.setattr(screen_actions, "pyautogui", SimpleNamespace(screenshot=lambda: "the screen"))
-    return saved
-
-
 @pytest.fixture
 def focus_setup(monkeypatch, clock):
     focus = {}
@@ -186,81 +186,6 @@ def focus_setup(monkeypatch, clock):
     actions = screen_actions.ScreenActions()
     actions.focus_window("MapleStory")
     return actions, focus, game, other, fake
-
-
-@pytest.fixture
-def template_dirs(tmp_path, monkeypatch):
-    shared, local = tmp_path / "templates", tmp_path / "templates.local"
-    shared.mkdir()
-    local.mkdir()
-    for name in ("login_button.png", "quick_move_button.png"):
-        (shared / name).write_bytes(b"shared")
-    (local / "login_button.png").write_bytes(b"local")
-    monkeypatch.setattr(config, "TEMPLATES_DIR", shared)
-    monkeypatch.setattr(config, "LOCAL_TEMPLATES_DIR", local)
-    return shared, local
-
-
-@pytest.fixture
-def saved_rows(monkeypatch):
-    saved = SavedRows()
-
-    def append_price_row(row, collected_at, notes=""):
-        saved.append((dict(row), notes))
-        saved.times.append(collected_at)
-
-    monkeypatch.setattr(screen_actions, "append_price_row", append_price_row)
-    return saved
-
-
-def test_focus_window_waits_for_window_to_appear(monkeypatch, clock):
-    window = FakeWindow()
-    # Not there for the first two polls (game still loading), then appears.
-    monkeypatch.setattr(screen_actions, "gw", _fake_gw([[], [], [window]], active=window))
-
-    screen_actions.ScreenActions(poll_interval=0.5, timeout=10).focus_window("MapleStory")
-
-    assert window.activated == 1
-    assert clock.now >= 1.0  # waited through the two empty polls
-
-
-def test_focus_window_times_out_if_window_never_appears(monkeypatch, clock, screenshots):
-    monkeypatch.setattr(screen_actions, "gw", _fake_gw([[]]))
-
-    with pytest.raises(TimeoutError, match="MapleStory"):
-        screen_actions.ScreenActions(poll_interval=0.5, timeout=3).focus_window("MapleStory")
-
-    assert clock.now >= 3
-    assert screenshots == [("timeout_MapleStory", "the screen")]
-
-
-def test_record_leftovers_screenshots_what_a_previous_run_left_open(monkeypatch, screenshots, capsys):
-    _running(monkeypatch, "nexon_client.exe")
-
-    screen_actions.ScreenActions().record_leftovers(["MapleStory.exe", "nexon_client.exe"])
-
-    assert screenshots == [("timeout_leftover", "the screen")]
-    out = capsys.readouterr().out
-    assert "nexon_client.exe" in out
-    assert "MapleStory.exe" not in out
-
-
-def test_record_leftovers_names_every_process_still_running(monkeypatch, screenshots, capsys):
-    _running(monkeypatch, "MapleStory.exe", "nexon_client.exe")
-
-    screen_actions.ScreenActions().record_leftovers(["MapleStory.exe", "nexon_client.exe"])
-
-    out = capsys.readouterr().out
-    assert "MapleStory.exe" in out and "nexon_client.exe" in out
-
-
-def test_record_leftovers_does_nothing_when_nothing_is_running(monkeypatch, screenshots, capsys):
-    _running(monkeypatch)
-
-    screen_actions.ScreenActions().record_leftovers(["MapleStory.exe", "nexon_client.exe"])
-
-    assert screenshots == []
-    assert capsys.readouterr().out == ""
 
 
 def test_click_refocuses_game_if_focus_moved_away(focus_setup):
@@ -291,6 +216,49 @@ def test_click_refuses_if_game_cannot_be_refocused(focus_setup):
         actions._click_box((10, 10))
 
     assert fake.clicked_with_focus_on == []  # never clicked into the wrong window
+
+
+class FakePyautogui:
+    class ImageNotFoundException(Exception):
+        pass
+
+    def __init__(self, found=None):
+        self.located: list[str] = []
+        self.grayscale: list[bool] = []
+        self.found = found  # box to "find" for every template, or None
+        self.events: list[tuple] = []
+
+    def locateOnScreen(self, path, confidence, grayscale):
+        self.located.append(path)
+        self.grayscale.append(grayscale)
+        if self.found is None:
+            raise self.ImageNotFoundException
+        return self.found
+
+    def center(self, box):
+        return ("center", box)
+
+    def moveTo(self, point):
+        self.events.append(("moveTo", point))
+
+    def mouseDown(self, _pause=True):
+        self.events.append(("mouseDown",))
+
+    def mouseUp(self):
+        self.events.append(("mouseUp",))
+
+
+@pytest.fixture
+def template_dirs(tmp_path, monkeypatch):
+    shared, local = tmp_path / "templates", tmp_path / "templates.local"
+    shared.mkdir()
+    local.mkdir()
+    for name in ("login_button.png", "quick_move_button.png"):
+        (shared / name).write_bytes(b"shared")
+    (local / "login_button.png").write_bytes(b"local")
+    monkeypatch.setattr(config, "TEMPLATES_DIR", shared)
+    monkeypatch.setattr(config, "LOCAL_TEMPLATES_DIR", local)
+    return shared, local
 
 
 def test_locate_uses_local_template_when_present_else_shared(monkeypatch, template_dirs):
@@ -344,6 +312,38 @@ def test_click_image_if_present_carries_on_when_template_never_shows(monkeypatch
 
     assert fake.events == []  # no click, and no exception
     assert clock.now >= 10  # gave it the full time before moving on
+
+
+def _readings(buy_100m):
+    return {
+        "average": 420,
+        "buy100M": buy_100m,
+        "buy1B": 427,
+        "buy10B": 427,
+        "sell100M": 418,
+        "sell1B": 418,
+        "sell10B": 418,
+    }
+
+
+class SavedRows(list):
+    """(row, notes) per saved row, plus the collection time each was given."""
+
+    def __init__(self):
+        super().__init__()
+        self.times = []
+
+
+@pytest.fixture
+def saved_rows(monkeypatch):
+    saved = SavedRows()
+
+    def append_price_row(row, collected_at, notes=""):
+        saved.append((dict(row), notes))
+        saved.times.append(collected_at)
+
+    monkeypatch.setattr(screen_actions, "append_price_row", append_price_row)
+    return saved
 
 
 def test_save_price_row_gives_the_csv_and_tracker_the_same_time(saved_rows):
