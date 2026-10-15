@@ -17,6 +17,11 @@ COMPLETE_ROW = {
     "sell1B": 311,
     "sell10B": 307,
 }
+COLLECTED_AT = datetime(2026, 10, 1, 6, 19, 51, tzinfo=timezone.utc)
+UNKNOWN_DATETIME_FIELD = {
+    "errors": [{"message": "Field 'datetime' is not defined by type 'PriceInput'."}],
+    "data": None,
+}
 
 
 @pytest.fixture(autouse=True)
@@ -158,13 +163,6 @@ def test_post_price_row_succeeds_when_recordPrice_returns_an_id(mock_post, capsy
     # printed (not just silently discarded) so the id is available for
     # cross-referencing against Tracker/Supabase later.
     assert "42" in capsys.readouterr().out
-
-
-COLLECTED_AT = datetime(2026, 10, 1, 6, 19, 51, tzinfo=timezone.utc)
-UNKNOWN_DATETIME_FIELD = {
-    "errors": [{"message": "Field 'datetime' is not defined by type 'PriceInput'."}],
-    "data": None,
-}
 
 
 @patch("meso_market_collector.api_client.requests.post")

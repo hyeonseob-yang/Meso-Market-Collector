@@ -8,6 +8,18 @@ from meso_market_collector.storage import (
     clear_old_snapshots,
 )
 
+COLLECTED_AT = datetime(2026, 2, 9, 17, 50, tzinfo=timezone.utc)
+
+
+def _snapshot_filename(item: str, when: datetime) -> str:
+    return f"{item}_{when.strftime('%Y%m%dT%H%M%S%f')}.png"
+
+
+def _timeout_screenshot(tmp_path, taken_at):
+    path = tmp_path / _snapshot_filename("timeout_quick_move_button", taken_at)
+    path.write_bytes(b"fake png")
+    return path
+
 
 def test_append_region_reading_writes_header_and_row(tmp_path):
     csv_path = tmp_path / "region_readings.csv"
@@ -21,9 +33,6 @@ def test_append_region_reading_writes_header_and_row(tmp_path):
     assert [r["item"] for r in rows] == ["meso_price", "meso_price"]
     assert [r["price"] for r in rows] == ["1234.0", "1250.5"]
     assert all(r["timestamp"] for r in rows)
-
-
-COLLECTED_AT = datetime(2026, 2, 9, 17, 50, tzinfo=timezone.utc)
 
 
 def test_append_price_row_fills_missing_columns_blank(tmp_path):
@@ -94,10 +103,6 @@ def test_append_price_row_uses_current_utc_time_by_default(tmp_path):
     assert datetime.fromisoformat(row["datetime"]).utcoffset() == timedelta(0)
 
 
-def _snapshot_filename(item: str, when: datetime) -> str:
-    return f"{item}_{when.strftime('%Y%m%dT%H%M%S%f')}.png"
-
-
 def test_clear_old_snapshots_deletes_files_past_max_age(tmp_path):
     now = datetime(2026, 1, 30, tzinfo=timezone.utc)
     old_file = tmp_path / _snapshot_filename("sell_meso_average", datetime(2026, 1, 1, tzinfo=timezone.utc))
@@ -153,12 +158,6 @@ def test_append_price_row_writes_notes(tmp_path):
 
     assert row["buy100M"] == "42"
     assert row["notes"] == "Possible OCR misread: buy100M=42"
-
-
-def _timeout_screenshot(tmp_path, taken_at):
-    path = tmp_path / _snapshot_filename("timeout_quick_move_button", taken_at)
-    path.write_bytes(b"fake png")
-    return path
 
 
 def test_clear_old_snapshots_keeps_failure_screenshots_for_their_own_longer_limit(tmp_path):
