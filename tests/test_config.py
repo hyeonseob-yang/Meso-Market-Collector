@@ -27,13 +27,13 @@ def test_get_template_path_falls_back_without_local_dir(tmp_path, monkeypatch):
     assert config.get_template_path("login_button.png") == tmp_path / "templates" / "login_button.png"
 
 
-def _write_box(path, left):
-    path.write_text(json.dumps({"meso_price": {"left": left, "top": 20, "width": 150, "height": 30}}))
+def _write_column(path, left):
+    path.write_text(json.dumps({"meso": {"left": left, "width": 150, "height": 30, "tops": [20]}}))
 
 
 def test_load_regions_defaults_to_committed_file_without_local_override(tmp_path, monkeypatch):
     default_file = tmp_path / "regions.json"
-    _write_box(default_file, left=10)
+    _write_column(default_file, left=10)
     monkeypatch.setattr(config, "REGIONS_FILE", default_file)
     monkeypatch.setattr(config, "LOCAL_REGIONS_FILE", tmp_path / "regions.local.json")
 
@@ -43,28 +43,12 @@ def test_load_regions_defaults_to_committed_file_without_local_override(tmp_path
 def test_load_regions_prefers_local_override_when_present(tmp_path, monkeypatch):
     default_file = tmp_path / "regions.json"
     local_file = tmp_path / "regions.local.json"
-    _write_box(default_file, left=10)
-    _write_box(local_file, left=99)
+    _write_column(default_file, left=10)
+    _write_column(local_file, left=99)
     monkeypatch.setattr(config, "REGIONS_FILE", default_file)
     monkeypatch.setattr(config, "LOCAL_REGIONS_FILE", local_file)
 
     assert load_regions()[0].left == 99
-
-
-def test_load_regions_parses_named_boxes(tmp_path):
-    regions_file = tmp_path / "regions.json"
-    regions_file.write_text(
-        json.dumps(
-            {
-                "meso_price": {"left": 10, "top": 20, "width": 150, "height": 30},
-            }
-        )
-    )
-
-    regions = load_regions(regions_file)
-
-    assert regions == [Region(name="meso_price", left=10, top=20, width=150, height=30)]
-    assert regions[0].box == (10, 20, 150, 30)
 
 
 def test_load_regions_expands_column_shorthand(tmp_path):
@@ -92,6 +76,7 @@ def test_load_regions_expands_column_shorthand(tmp_path):
         Region(name="meso_3", left=10, top=180, width=150, height=30),
         Region(name="meso_4", left=10, top=220, width=150, height=30),
     ]
+    assert regions[0].box == (10, 100, 150, 30)
 
 
 def test_load_regions_column_shorthand_accepts_explicit_names(tmp_path):
@@ -122,24 +107,12 @@ def test_load_regions_column_shorthand_accepts_explicit_names(tmp_path):
     ]
 
 
-def test_load_regions_mixes_boxes_and_columns(tmp_path):
+def test_load_regions_rejects_an_entry_without_tops(tmp_path):
     regions_file = tmp_path / "regions.json"
-    regions_file.write_text(
-        json.dumps(
-            {
-                "meso": {"left": 10, "width": 150, "height": 30, "tops": [100, 140]},
-                "other_price": {"left": 300, "top": 50, "width": 80, "height": 20},
-            }
-        )
-    )
+    regions_file.write_text(json.dumps({"other_price": {"left": 300, "top": 50, "width": 80, "height": 20}}))
 
-    regions = load_regions(regions_file)
-
-    assert regions == [
-        Region(name="meso_1", left=10, top=100, width=150, height=30),
-        Region(name="meso_2", left=10, top=140, width=150, height=30),
-        Region(name="other_price", left=300, top=50, width=80, height=20),
-    ]
+    with pytest.raises(ValueError, match="other_price.*tops"):
+        load_regions(regions_file)
 
 
 @pytest.fixture

@@ -66,12 +66,9 @@ def get_template_path(name: str) -> Path:
 def load_regions(path: Path | None = None) -> list[Region]:
     """Load regions from `path` (default: get_regions_file()).
 
-    A plain entry is one box: {"left", "top", "width", "height"}.
-
-    A column entry, {"left", "width", "height", "tops": [...]}, expands
-    into one Region per top - for boxes stacked in a column. Rows are
-    named "<key>_1", "<key>_2", ... unless a "names" list (paired with
-    "tops") is given.
+    Each entry is a column, {"left", "width", "height", "tops": [...]},
+    expanded into one Region per top. Rows are named "<key>_1", "<key>_2",
+    ... unless a "names" list (paired with "tops") is given.
     """
     if path is None:
         path = get_regions_file()
@@ -79,14 +76,13 @@ def load_regions(path: Path | None = None) -> list[Region]:
         raw = json.load(f)
 
     regions: list[Region] = []
-    for name, box in raw.items():
-        if "tops" in box:
-            tops = box["tops"]
-            names = box.get("names", [f"{name}_{i}" for i in range(1, len(tops) + 1)])
-            for row_name, top in zip(names, tops):
-                regions.append(
-                    Region(name=row_name, left=box["left"], top=top, width=box["width"], height=box["height"])
-                )
-        else:
-            regions.append(Region(name=name, **box))
+    for name, column in raw.items():
+        if "tops" not in column:
+            raise ValueError(f"Region entry {name!r} has no 'tops' list")
+        tops = column["tops"]
+        names = column.get("names", [f"{name}_{i}" for i in range(1, len(tops) + 1)])
+        for row_name, top in zip(names, tops):
+            regions.append(
+                Region(name=row_name, left=column["left"], top=top, width=column["width"], height=column["height"])
+            )
     return regions
