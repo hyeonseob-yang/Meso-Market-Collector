@@ -29,11 +29,13 @@ def test_build_price_payload_sends_the_row_as_price_input():
 
 
 def test_build_price_payload_sends_ints_not_floats():
-    # PriceInput's price fields are `int` (Meso-Market-Tracker/backend/schema.py)
-    payload = build_price_payload(COMPLETE_ROW)
+    row = {field: float(value) for field, value in COMPLETE_ROW.items()}
 
-    assert isinstance(payload["variables"]["price"]["average"], int)
-    assert not isinstance(payload["variables"]["price"]["average"], bool)
+    price = build_price_payload(row)["variables"]["price"]
+
+    assert {field: (type(price[field]), price[field]) for field in COMPLETE_ROW} == {
+        field: (int, value) for field, value in COMPLETE_ROW.items()
+    }
 
 
 def test_build_price_payload_sends_no_datetime_without_collected_at():
