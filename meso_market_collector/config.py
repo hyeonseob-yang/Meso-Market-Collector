@@ -22,7 +22,6 @@ TEMPLATES_DIR = PROJECT_ROOT / "assets" / "templates"
 LOCAL_TEMPLATES_DIR = PROJECT_ROOT / "assets" / "templates.local"
 DATA_DIR = PROJECT_ROOT / "data"
 CSV_PATH = DATA_DIR / "price_history.csv"
-REGION_READINGS_CSV_PATH = DATA_DIR / "region_readings.csv"
 
 # Meso-Market-Tracker's deployed endpoint (its backend_url Terraform
 # output). Override with MESO_TRACKER_API_URL, e.g. for a local dev server.

@@ -6,7 +6,6 @@ import pytest
 from meso_market_collector.storage import (
     PRICE_ROW_FIELDNAMES,
     append_price_row,
-    append_region_reading,
     clear_old_snapshots,
 )
 
@@ -15,20 +14,6 @@ COLLECTED_AT = datetime(2026, 2, 9, 17, 50, tzinfo=timezone.utc)
 
 def _snapshot_filename(item: str, when: datetime) -> str:
     return f"{item}_{when.strftime('%Y%m%dT%H%M%S%f')}.png"
-
-
-def test_append_region_reading_writes_header_and_row(tmp_path):
-    csv_path = tmp_path / "region_readings.csv"
-
-    append_region_reading("meso_price", 1234.0, csv_path=csv_path)
-    append_region_reading("meso_price", 1250.5, csv_path=csv_path)
-
-    with open(csv_path, newline="", encoding="utf-8") as f:
-        rows = list(csv.DictReader(f))
-
-    assert [r["item"] for r in rows] == ["meso_price", "meso_price"]
-    assert [r["price"] for r in rows] == ["1234.0", "1250.5"]
-    assert all(r["timestamp"] for r in rows)
 
 
 def test_append_price_row_fills_missing_columns_blank(tmp_path):

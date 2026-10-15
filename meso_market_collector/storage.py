@@ -8,14 +8,12 @@ from pathlib import Path
 
 from PIL import Image
 
-from .config import CSV_PATH, DATA_DIR, REGION_READINGS_CSV_PATH
+from .config import CSV_PATH, DATA_DIR
 
 # Captures the timestamp from save_snapshot's "<item>_<timestamp>.png".
 _SNAPSHOT_TIMESTAMP_RE = re.compile(r"_(\d{8}T\d{12})\.png$")
 
 FAILURE_SNAPSHOT_PREFIX = "timeout_"
-
-REGION_READING_FIELDNAMES = ["timestamp", "item", "price"]
 
 # Named as in Tracker's PriceInput, so a row is posted as-is.
 PRICE_FIELDS = ["average", "buy100M", "buy1B", "buy10B", "sell100M", "sell1B", "sell10B"]
@@ -44,24 +42,6 @@ def append_price_row(row: dict, csv_path: Path = CSV_PATH) -> None:
         if is_new:
             writer.writeheader()
         writer.writerow(line)
-
-
-def append_region_reading(item: str, price: float | None, csv_path: Path = REGION_READINGS_CSV_PATH) -> None:
-    """Append one row per captured region - collect.py's flat output, as
-    opposed to append_price_row's one row per run."""
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
-    is_new = not csv_path.exists()
-    with open(csv_path, "a", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=REGION_READING_FIELDNAMES)
-        if is_new:
-            writer.writeheader()
-        writer.writerow(
-            {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "item": item,
-                "price": price,
-            }
-        )
 
 
 def save_snapshot(item: str, image: Image.Image, snapshot_dir: Path = DATA_DIR / "snapshots") -> Path:
