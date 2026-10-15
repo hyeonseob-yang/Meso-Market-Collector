@@ -19,6 +19,12 @@ COMPLETE_ROW = {
 }
 
 
+@pytest.fixture(autouse=True)
+def no_secret(monkeypatch):
+    # Never read this machine's real .env file or environment variable.
+    monkeypatch.setattr("meso_market_collector.api_client.get_record_price_secret", lambda: None)
+
+
 def test_build_price_payload_sends_the_row_as_price_input():
     payload = build_price_payload(COMPLETE_ROW)
 
@@ -106,12 +112,6 @@ def test_build_price_payload_defaults_notes_to_empty_string():
     payload = build_price_payload(COMPLETE_ROW)
 
     assert payload["variables"]["price"]["notes"] == ""
-
-
-@pytest.fixture(autouse=True)
-def no_secret(monkeypatch):
-    # Never read this machine's real .env file or environment variable.
-    monkeypatch.setattr("meso_market_collector.api_client.get_record_price_secret", lambda: None)
 
 
 @patch("meso_market_collector.api_client.requests.post")
