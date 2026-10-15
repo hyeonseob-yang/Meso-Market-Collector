@@ -133,6 +133,8 @@ def test_run_routine_dispatches_each_step_in_order():
     # "launch" triggers a scheduled task that goes straight to the login
     # screen (see screen_actions.ScreenActions.launch) - no Play click or
     # Windows Run prompt to handle here anymore.
+    sell_regions = {"meso_1": "average", "meso_2": "sell100M", "meso_3": "sell1B", "meso_4": "sell10B"}
+    buy_regions = {"meso_2": "buy100M", "meso_3": "buy1B", "meso_4": "buy10B"}
     steps = [
         Step(action="launch"),
         Step(action="focus_window", window_title="MapleStory"),
@@ -142,28 +144,13 @@ def test_run_routine_dispatches_each_step_in_order():
             template="sell_mesos_active.png",
             message="Log in and navigate to the Meso Market Sell tab",
         ),
-        Step(
-            action="record_prices",
-            regions={
-                "meso_1": "average",
-                "meso_2": "sell100M",
-                "meso_3": "sell1B",
-                "meso_4": "sell10B",
-            },
-        ),
+        Step(action="record_prices", regions=sell_regions),
         Step(
             action="wait_for_image",
             template="buy_mesos_active.png",
             message="Click the Buy Mesos tab",
         ),
-        Step(
-            action="record_prices",
-            regions={
-                "meso_2": "buy100M",
-                "meso_3": "buy1B",
-                "meso_4": "buy10B",
-            },
-        ),
+        Step(action="record_prices", regions=buy_regions),
         Step(action="save_price_row"),
         Step(action="post_price_row"),
         Step(action="run_task", task_name="MesoMarketCollector_KillMapleStory"),
@@ -178,24 +165,9 @@ def test_run_routine_dispatches_each_step_in_order():
         ("focus_window", "MapleStory"),
         ("wait_for_image", "login_button.png", None, None),
         ("wait_for_image", "sell_mesos_active.png", "Log in and navigate to the Meso Market Sell tab", None),
-        (
-            "record_prices",
-            {
-                "meso_1": "average",
-                "meso_2": "sell100M",
-                "meso_3": "sell1B",
-                "meso_4": "sell10B",
-            },
-        ),
+        ("record_prices", sell_regions),
         ("wait_for_image", "buy_mesos_active.png", "Click the Buy Mesos tab", None),
-        (
-            "record_prices",
-            {
-                "meso_2": "buy100M",
-                "meso_3": "buy1B",
-                "meso_4": "buy10B",
-            },
-        ),
+        ("record_prices", buy_regions),
         ("save_price_row",),
         ("post_price_row",),
         ("run_task", "MesoMarketCollector_KillMapleStory"),

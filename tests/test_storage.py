@@ -1,7 +1,12 @@
 import csv
 from datetime import datetime, timedelta, timezone
 
-from meso_market_collector.storage import append_price_row, append_region_reading, clear_old_snapshots
+from meso_market_collector.storage import (
+    PRICE_ROW_FIELDNAMES,
+    append_price_row,
+    append_region_reading,
+    clear_old_snapshots,
+)
 
 
 def test_append_region_reading_writes_header_and_row(tmp_path):
@@ -30,17 +35,7 @@ def test_append_price_row_fills_missing_columns_blank(tmp_path):
         rows = list(csv.DictReader(f))
 
     assert rows == [
-        {
-            "datetime": "2026-02-09T17:50:00+00:00",
-            "average": "377",
-            "buy100M": "",
-            "buy1B": "",
-            "buy10B": "",
-            "sell100M": "",
-            "sell1B": "",
-            "sell10B": "",
-            "notes": "",
-        }
+        {**dict.fromkeys(PRICE_ROW_FIELDNAMES, ""), "datetime": "2026-02-09T17:50:00+00:00", "average": "377"}
     ]
 
 

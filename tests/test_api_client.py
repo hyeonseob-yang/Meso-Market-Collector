@@ -24,18 +24,7 @@ def test_build_price_payload_sends_the_row_as_price_input():
 
     assert payload == {
         "query": RECORD_PRICE_MUTATION,
-        "variables": {
-            "price": {
-                "average": 310,
-                "buy100M": 313,
-                "buy1B": 313,
-                "buy10B": 313,
-                "sell100M": 311,
-                "sell1B": 311,
-                "sell10B": 307,
-                "notes": "",
-            }
-        },
+        "variables": {"price": {**COMPLETE_ROW, "notes": ""}},
     }
 
 
@@ -99,8 +88,8 @@ def test_build_price_payload_reports_all_missing_prices_at_once():
         build_price_payload(row)
 
     message = str(exc_info.value)
-    for column in ["buy100M", "buy1B", "buy10B", "sell100M", "sell1B", "sell10B"]:
-        assert column in message
+    for field in COMPLETE_ROW.keys() - {"average"}:
+        assert field in message
 
 
 def test_build_price_payload_passes_through_notes():
