@@ -95,17 +95,17 @@ On a machine with a different resolution or scaling, make local copies
   [assets/templates/README.md](assets/templates/README.md) for what each
   one shows.
 
-### 3. Tracker secret
+### 3. Tracker address and secret
 
-Posting to Tracker needs its shared secret. Create a `.env` file in the
-repo root (gitignored — never commit it):
+Posting to Tracker needs its address and shared secret. Create a `.env`
+file in the repo root (gitignored — never commit it):
 
 ```
+MESO_TRACKER_API_URL=your-tracker-address-here
 MESO_TRACKER_RECORD_PRICE_SECRET=your-secret-here
 ```
 
-`MESO_TRACKER_API_URL` can be set the same way to post somewhere other than
-the deployed Tracker.
+The address is Tracker's `backend_url` Terraform output.
 
 ### 4. Hourly schedule (optional)
 

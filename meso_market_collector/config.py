@@ -26,13 +26,11 @@ CSV_PATH = DATA_DIR / "price_history.csv"
 ENV_FILE = PROJECT_ROOT / ".env"  # gitignored - never commit it
 load_dotenv(ENV_FILE)  # doesn't override variables already set
 
-# Meso-Market-Tracker's deployed endpoint (its backend_url Terraform
-# output). Override with MESO_TRACKER_API_URL, e.g. for a local dev server.
-DEFAULT_TRACKER_API_URL = "https://xa6elv0g44.execute-api.us-east-1.amazonaws.com/price"
-
-
 def get_tracker_api_url() -> str:
-    return os.environ.get("MESO_TRACKER_API_URL") or DEFAULT_TRACKER_API_URL
+    url = os.environ.get("MESO_TRACKER_API_URL")
+    if not url:
+        raise RuntimeError("MESO_TRACKER_API_URL isn't set - add Tracker's address to .env")
+    return url
 
 
 def get_record_price_secret() -> str | None:

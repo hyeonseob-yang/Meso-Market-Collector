@@ -3,7 +3,7 @@ import json
 import pytest
 
 from meso_market_collector import config
-from meso_market_collector.config import DEFAULT_TRACKER_API_URL, Region, get_tracker_api_url, load_regions
+from meso_market_collector.config import Region, get_tracker_api_url, load_regions
 
 
 def test_get_template_path_prefers_local_copy_per_file(tmp_path, monkeypatch):
@@ -150,8 +150,9 @@ def clean_env(monkeypatch):
     monkeypatch.delenv("MESO_TRACKER_RECORD_PRICE_SECRET", raising=False)
 
 
-def test_get_tracker_api_url_defaults_to_deployed_endpoint(clean_env):
-    assert get_tracker_api_url() == DEFAULT_TRACKER_API_URL
+def test_get_tracker_api_url_requires_the_setting(clean_env):
+    with pytest.raises(RuntimeError, match="MESO_TRACKER_API_URL"):
+        get_tracker_api_url()
 
 
 def test_get_tracker_api_url_reads_the_environment(clean_env, monkeypatch):
